@@ -29,7 +29,6 @@ CONFIG_ZMK_BLE=y
 
 # Improve split BLE range and connection stability.
 CONFIG_BT_CTLR_TX_PWR_PLUS_8=y
-CONFIG_ZMK_BLE_EXPERIMENTAL_CONN=y
 
 # never output usb
 CONFIG_ZMK_USB=n
