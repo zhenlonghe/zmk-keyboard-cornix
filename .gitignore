@@ -4,6 +4,7 @@
 result
 .envrc
 .build
+.DS_Store
 target
 
 firmware

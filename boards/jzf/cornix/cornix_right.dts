@@ -55,7 +55,7 @@
 
 / {
     //hardcoding label for ext_power behavior
-    EXT_POWER {
+    led_power: EXT_POWER {
         status = "disabled";
         compatible = "zmk,ext-power-generic";
         control-gpios = <&gpio0 24 GPIO_ACTIVE_HIGH>;
