@@ -65,6 +65,15 @@ config ZMK_SPLIT
 config ZMK_BLE
 	default y
 
+config RETAINED_MEM
+    default y
+
+config RETENTION
+    default y
+
+config RETENTION_BOOT_MODE
+    default y
+
 ## disable rgb by default
 config ZMK_RGB_UNDERGLOW
 	default n

@@ -12,6 +12,7 @@
 #include "cornix-layouts.dtsi"
 #include "cornix_sensors.dtsi"
 #include "nrf_e73.dtsi"
+#include <common/nordic/nrf52840_uf2_boot_mode.dtsi>
 / {
     chosen {
         zmk,kscan = &kscan0;
