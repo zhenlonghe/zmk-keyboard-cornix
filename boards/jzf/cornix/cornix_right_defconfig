@@ -35,6 +35,10 @@ CONFIG_ZMK_USB=n
 
 CONFIG_INPUT=y
 
+# Enter deep sleep after twenty minutes of inactivity.
+CONFIG_ZMK_SLEEP=y
+CONFIG_ZMK_IDLE_SLEEP_TIMEOUT=1200000
+
 # RGB
 #CONFIG_SPI=n
 #CONFIG_ZMK_EXT_POWER=n

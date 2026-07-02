@@ -25,9 +25,6 @@ The project includes several specialized shields that provide additional functio
 This community firmware has been tested with Cornix using ZMK and provides full split-role configuration, battery power management, and Bluetooth central/peripheral setup per ZMK split guidelines
 
 
-![image](images/cornix_with_dongle.png)
-![image](images/cornix_layout.png)
-
 ## warning：device breakdown recovery
 
 the original cornix use flash layout without softdevice

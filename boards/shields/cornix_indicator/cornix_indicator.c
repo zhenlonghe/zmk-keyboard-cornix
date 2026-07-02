@@ -510,7 +510,10 @@ static int indicator_listener(const zmk_event_t *eh) {
 
     const struct zmk_activity_state_changed *activity = as_zmk_activity_state_changed(eh);
     if (activity != NULL) {
-        set_sleeping_locked(activity->state == ZMK_ACTIVITY_SLEEP);
+        /* IDLE already stops battery reporting; put the status LEDs on the same
+         * lifecycle so their rail and periodic polling also stop while unused.
+         */
+        set_sleeping_locked(activity->state != ZMK_ACTIVITY_ACTIVE);
     }
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
