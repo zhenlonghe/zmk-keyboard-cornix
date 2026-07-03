@@ -15,7 +15,7 @@
 include:
   - board: nice_nano/nrf52840/zmk
     shield: cornix_dongle_adapter cornix_dongle_eyelash dongle_display
-    snippet: studio-rpc-usb-uart nrf52840-nosd
+    snippet: nrf52840-nosd
     artifact-name: cornix_dongle_nosd
   # dongle screen not yet supports zephyr4
   # - board: seeeduino_xiao_ble
@@ -40,15 +40,15 @@ include:
 
   - board: cornix_left
     shield: settings_reset
-    snippet: studio-rpc-usb-uart nrf52840-nosd
+    snippet: nrf52840-nosd
     artifact-name: cornix_left_settings_reset
 
   - board: cornix_right
     shield: settings_reset
-    snippet: studio-rpc-usb-uart nrf52840-nosd
+    snippet: nrf52840-nosd
     artifact-name: cornix_right_settings_reset
 
   - board: nice_nano/nrf52840/zmk
     shield: settings_reset
-    snippet: studio-rpc-usb-uart nrf52840-nosd
+    snippet: nrf52840-nosd
     artifact-name: reset_nicenano_nosd
