@@ -45,7 +45,7 @@ you have two solutions
 - [x] no-SD image, since v2.3
 - [x] support various of dongles
 - [x] upgrade to zephyr4.1 and lvgl9 , since v2.7, no dongle screen support yet
-- [ ] rgb since in future v3
+- [x] rgb since in future v3
 
 
 ### about RGB

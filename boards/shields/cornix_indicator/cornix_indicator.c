@@ -15,6 +15,7 @@
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/reboot.h>
 
 #include <hal/nrf_power.h>
 
@@ -28,6 +29,8 @@
 #include <zmk/events/ble_active_profile_changed.h>
 #include <zmk/events/split_peripheral_status_changed.h>
 #include <zmk/workqueue.h>
+
+#include "reconnect_policy.h"
 
 #if IS_ENABLED(CONFIG_ZMK_USB)
 #include <zmk/events/usb_conn_state_changed.h>
@@ -62,6 +65,7 @@ LOG_MODULE_REGISTER(cornix_indicator, CONFIG_ZMK_LOG_LEVEL);
 #define FADE_STEP 3
 #define BATTERY_LOW 20
 #define BATTERY_FULL 95
+#define RECONNECT_RECOVERY_DELAY_MS 5000
 
 struct color {
     uint8_t r;
@@ -93,6 +97,7 @@ struct indicator_state {
     bool peer_connected;
     bool caps_lock;
     bool sleeping;
+    bool deep_sleeping;
 
     int64_t ble_since;
     int64_t peer_since;
@@ -136,6 +141,9 @@ K_MUTEX_DEFINE(state_mutex);
 static struct k_work_delayable indicator_work;
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+static struct cornix_reconnect_policy reconnect_policy;
+static struct k_work_delayable reconnect_recovery_work;
+
 /* ZMK currently exposes split connection state through the active transport. */
 extern const struct zmk_split_transport_central *active_transport;
 #endif
@@ -284,6 +292,42 @@ static bool read_peer_connected(void) {
     return zmk_split_bt_peripheral_is_connected();
 #endif
 }
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+static void update_reconnect_recovery_locked(void) {
+    if (!state.initialized) {
+        return;
+    }
+
+    enum cornix_reconnect_action action = cornix_reconnect_policy_update(
+        &reconnect_policy, state.ble_connected, state.peer_connected, state.deep_sleeping);
+
+    if (action == CORNIX_RECONNECT_SCHEDULE) {
+        k_work_reschedule_for_queue(zmk_workqueue_lowprio_work_q(), &reconnect_recovery_work,
+                                    K_MSEC(RECONNECT_RECOVERY_DELAY_MS));
+    } else if (action == CORNIX_RECONNECT_CANCEL) {
+        k_work_cancel_delayable(&reconnect_recovery_work);
+    }
+}
+
+static void reconnect_recovery_work_handler(struct k_work *work) {
+    ARG_UNUSED(work);
+
+    k_mutex_lock(&state_mutex, K_FOREVER);
+    int64_t now = k_uptime_get();
+    set_peer_connected_locked(read_peer_connected(), now);
+    set_ble_state_locked(zmk_ble_active_profile_index(), zmk_ble_active_profile_is_connected(),
+                         now);
+    bool should_reboot = cornix_reconnect_policy_expired(
+        &reconnect_policy, state.ble_connected, state.peer_connected, state.deep_sleeping);
+    k_mutex_unlock(&state_mutex);
+
+    if (should_reboot) {
+        LOG_WRN("Both BLE links remained disconnected; rebooting for recovery");
+        sys_reboot(SYS_REBOOT_COLD);
+    }
+}
+#endif
 
 static void refresh_low_battery_locked(int64_t now) {
     if (!battery_at_most(BATTERY_LOW)) {
@@ -447,6 +491,7 @@ static void indicator_work_handler(struct k_work *work) {
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
     set_ble_state_locked(zmk_ble_active_profile_index(), zmk_ble_active_profile_is_connected(),
                          now);
+    update_reconnect_recovery_locked();
 #endif
 
     refresh_low_battery_locked(now);
@@ -510,10 +555,11 @@ static int indicator_listener(const zmk_event_t *eh) {
 
     const struct zmk_activity_state_changed *activity = as_zmk_activity_state_changed(eh);
     if (activity != NULL) {
-        /* IDLE already stops battery reporting; put the status LEDs on the same
-         * lifecycle so their rail and periodic polling also stop while unused.
+        /* Keep low-frequency polling in IDLE so peripherals without USB events
+         * can detect charging and show its animation. Stop only in deep sleep.
          */
-        set_sleeping_locked(activity->state != ZMK_ACTIVITY_ACTIVE);
+        set_sleeping_locked(activity->state == ZMK_ACTIVITY_SLEEP);
+        state.deep_sleeping = activity->state == ZMK_ACTIVITY_SLEEP;
     }
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
@@ -535,6 +581,10 @@ static int indicator_listener(const zmk_event_t *eh) {
         set_caps_lock_locked((indicators->indicators & HID_INDICATOR_CAPS_LOCK) != 0);
     }
 #endif
+#endif
+
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+    update_reconnect_recovery_locked();
 #endif
 
     k_mutex_unlock(&state_mutex);
@@ -586,6 +636,9 @@ static int cornix_indicator_init(void) {
     };
 
     k_work_init_delayable(&indicator_work, indicator_work_handler);
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+    k_work_init_delayable(&reconnect_recovery_work, reconnect_recovery_work_handler);
+#endif
     state.initialized = true;
     k_work_schedule_for_queue(zmk_workqueue_lowprio_work_q(), &indicator_work, K_MSEC(100));
     return 0;
