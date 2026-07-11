@@ -54,7 +54,7 @@ LOG_MODULE_REGISTER(cornix_indicator, CONFIG_ZMK_LOG_LEVEL);
 #define LED_POWER_NODE DT_ALIAS(status_led_power)
 
 #define ANIM_INTERVAL_MS 33
-#define IDLE_INTERVAL_MS 1000
+#define IDLE_INTERVAL_MS 5000
 #define NOTICE_MS 3000
 #define ACTIVITY_MS 60000
 #define LOW_ALERT_MS 5000
@@ -97,7 +97,6 @@ struct indicator_state {
     bool peer_connected;
     bool caps_lock;
     bool sleeping;
-    bool deep_sleeping;
 
     int64_t ble_since;
     int64_t peer_since;
@@ -294,13 +293,22 @@ static bool read_peer_connected(void) {
 }
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+static bool usb_output_active(void) {
+#if IS_ENABLED(CONFIG_ZMK_USB)
+    return zmk_usb_is_hid_ready();
+#else
+    return false;
+#endif
+}
+
 static void update_reconnect_recovery_locked(void) {
     if (!state.initialized) {
         return;
     }
 
-    enum cornix_reconnect_action action = cornix_reconnect_policy_update(
-        &reconnect_policy, state.ble_connected, state.peer_connected, state.deep_sleeping);
+    enum cornix_reconnect_action action =
+        cornix_reconnect_policy_update(&reconnect_policy, state.ble_connected,
+                                       state.peer_connected, usb_output_active(), state.sleeping);
 
     if (action == CORNIX_RECONNECT_SCHEDULE) {
         k_work_reschedule_for_queue(zmk_workqueue_lowprio_work_q(), &reconnect_recovery_work,
@@ -318,8 +326,9 @@ static void reconnect_recovery_work_handler(struct k_work *work) {
     set_peer_connected_locked(read_peer_connected(), now);
     set_ble_state_locked(zmk_ble_active_profile_index(), zmk_ble_active_profile_is_connected(),
                          now);
-    bool should_reboot = cornix_reconnect_policy_expired(
-        &reconnect_policy, state.ble_connected, state.peer_connected, state.deep_sleeping);
+    bool should_reboot =
+        cornix_reconnect_policy_expired(&reconnect_policy, state.ble_connected,
+                                        state.peer_connected, usb_output_active(), state.sleeping);
     k_mutex_unlock(&state_mutex);
 
     if (should_reboot) {
@@ -559,7 +568,6 @@ static int indicator_listener(const zmk_event_t *eh) {
          * can detect charging and show its animation. Stop only in deep sleep.
          */
         set_sleeping_locked(activity->state == ZMK_ACTIVITY_SLEEP);
-        state.deep_sleeping = activity->state == ZMK_ACTIVITY_SLEEP;
     }
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)

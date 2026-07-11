@@ -16,8 +16,9 @@ struct cornix_reconnect_policy {
 
 static inline enum cornix_reconnect_action
 cornix_reconnect_policy_update(struct cornix_reconnect_policy *policy, bool host_connected,
-                               bool peer_connected, bool deep_sleeping) {
-    if (deep_sleeping) {
+                               bool peer_connected, bool usb_active, bool deep_sleeping) {
+    /* A working USB output means the user is not stranded; never reboot under them. */
+    if (deep_sleeping || usb_active) {
         bool was_pending = policy->pending;
         policy->pending = false;
         return was_pending ? CORNIX_RECONNECT_CANCEL : CORNIX_RECONNECT_NONE;
@@ -46,8 +47,9 @@ cornix_reconnect_policy_update(struct cornix_reconnect_policy *policy, bool host
 
 static inline bool cornix_reconnect_policy_expired(struct cornix_reconnect_policy *policy,
                                                     bool host_connected, bool peer_connected,
-                                                    bool deep_sleeping) {
-    if (!policy->armed || !policy->pending || host_connected || peer_connected || deep_sleeping) {
+                                                    bool usb_active, bool deep_sleeping) {
+    if (!policy->armed || !policy->pending || host_connected || peer_connected || usb_active ||
+        deep_sleeping) {
         policy->pending = false;
         return false;
     }
