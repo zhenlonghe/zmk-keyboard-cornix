@@ -3,11 +3,20 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - "boards/*"
-      - "config/*"
+      - "boards/**"
+      - "config/**"
+      - "tests/**"
+      - ".github/workflows/build.yml"
     tags-ignore:
       - "*"
 
 jobs:
+  policy-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cc -Wall -Wextra -Werror -I. -o /tmp/policy_test tests/reconnect_policy_test.c && /tmp/policy_test
+
   build:
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
+    # Pinned to the same ZMK revision as config/west.yml.
+    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@904c9aec8822d79149d42c8a9a77e8828eb08f5a

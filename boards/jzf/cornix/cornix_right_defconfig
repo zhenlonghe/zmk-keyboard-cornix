@@ -35,7 +35,7 @@ CONFIG_ZMK_USB=n
 
 CONFIG_INPUT=y
 
-# Enter deep sleep after twenty minutes of inactivity.
+# Enter deep sleep after 45 minutes of inactivity.
 CONFIG_ZMK_SLEEP=y
 CONFIG_ZMK_IDLE_SLEEP_TIMEOUT=2700000
 

@@ -11,15 +11,17 @@ manifest:
     - name: janpfischer
       url-base: https://github.com/janpfischer
   projects:
+    # Revisions pinned to each repo's main on 2026-07-11; the indicator shield
+    # links against ZMK-internal symbols, so bump these deliberately and rebuild.
     - name: zmk
       remote: zmkfirmware
-      revision: main
+      revision: 904c9aec8822d79149d42c8a9a77e8828eb08f5a
       clone-depth: 1
       import:
         file: app/west.yml
     - name: zmk-helpers
       remote: urob
-      revision: main
+      revision: bc114546392b4615ac90a99140eaf21dde31209d
       clone-depth: 1
     #- name: zmk-rgbled-widget
     #  remote: hitsmaxft
@@ -27,7 +29,7 @@ manifest:
     #  clone-depth: 1
     - name: zmk-dongle-display
       remote: englmaxi
-      revision: main
+      revision: 2bb333f87136d33e94a49d86236ed9ec254a8060
       clone-depth: 1
     #- name: zmk-dongle-screen
     #  remote: janpfischer

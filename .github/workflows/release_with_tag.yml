@@ -11,7 +11,8 @@ permissions:
 
 jobs:
   build:
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@main
+    # Pinned to the same ZMK revision as config/west.yml.
+    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@904c9aec8822d79149d42c8a9a77e8828eb08f5a
   release:
     needs: build
     runs-on: ubuntu-latest
