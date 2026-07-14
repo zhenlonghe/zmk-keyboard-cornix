@@ -30,6 +30,7 @@
 #include <zmk/events/split_peripheral_status_changed.h>
 #include <zmk/workqueue.h>
 
+#include "cornix_recovery.h"
 #include "reconnect_policy.h"
 
 #if IS_ENABLED(CONFIG_ZMK_USB)
@@ -487,6 +488,8 @@ static void indicator_work_handler(struct k_work *work) {
     bool animating;
     bool pending;
     bool sleeping;
+
+    cornix_recovery_feed();
 
     k_mutex_lock(&state_mutex, K_FOREVER);
     state.pending = false;
