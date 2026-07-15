@@ -26,6 +26,34 @@
         wakeup-source;
     };
 
+    behaviors {
+        csoff: csoff {
+            compatible = "zmk,behavior-soft-off";
+            #binding-cells = <0>;
+            hold-time-ms = <1>;
+            // Peripheral must power off while the BLE link is still alive;
+            // waiting for the release event is unreliable (central sleeps
+            // only 100ms before killing the radio).
+            split-peripheral-off-on-press;
+        };
+    };
+
+    combos {
+        compatible = "zmk,combos";
+
+        soft_off_combo {
+            timeout-ms = <200>;
+            require-prior-idle-ms = <1000>;
+            // No slow-release: fire csoff release on the first release the
+            // central sees (its own key 41); waiting for key 46 would stall
+            // until the powered-off peripheral hits the BLE supervision
+            // timeout (~2s) and the central synthesizes the release.
+            key-positions = <41 46>;
+            bindings = <&csoff>;
+            layers = <0>;
+        };
+    };
+
 };
 
 &reg1 {
@@ -66,11 +94,6 @@
 
 
 / {
-    soft_off_wakers {
-        compatible = "zmk,soft-off-wakeup-sources";
-        wakeup-sources = <&kscan0>;
-    };
-
     chosen {
         zmk,bttery = &vbatt;
     };

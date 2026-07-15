@@ -54,6 +54,31 @@
 };
 
 / {
+    soft_off_wake_keys {
+        compatible = "gpio-keys";
+        status = "disabled";
+
+        soft_off_wake_key: soft_off_wake_key {
+            gpios = <&gpio1 10 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+        };
+    };
+
+    soft_off_wakeup: soft_off_wakeup {
+        compatible = "zmk,gpio-key-wakeup-trigger";
+        trigger = <&soft_off_wake_key>;
+        wakeup-source;
+        // Drive Col 4 so key position 45 (Row 3 x Col 4) wakes from soft off.
+        // Must not be the off-combo key's column (46 = Row 3 x Col 3): the
+        // peripheral powers off on combo press while that key is still held,
+        // and an already-active SENSE line would wake it instantly.
+        extra-gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
+    };
+
+    soft_off_wakers {
+        compatible = "zmk,soft-off-wakeup-sources";
+        wakeup-sources = <&soft_off_wakeup>;
+    };
+
     //hardcoding label for ext_power behavior
     led_power: EXT_POWER {
         status = "disabled";
