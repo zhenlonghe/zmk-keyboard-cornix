@@ -1,5 +1,6 @@
 &spi3 {
     status = "okay";
+    zephyr,pm-device-runtime-auto;
 
     led_strip: ws2812@0 {
         status = "okay";

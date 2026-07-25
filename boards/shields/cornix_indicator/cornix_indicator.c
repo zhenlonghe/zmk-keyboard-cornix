@@ -15,6 +15,7 @@
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/pm/device.h>
 #include <zephyr/sys/reboot.h>
 
 #include <hal/nrf_power.h>
@@ -138,6 +139,7 @@ static const struct gpio_dt_spec led_power = GPIO_DT_SPEC_GET(LED_POWER_NODE, co
 
 static struct indicator_state state;
 K_MUTEX_DEFINE(state_mutex);
+K_MUTEX_DEFINE(render_mutex);
 static struct k_work_delayable indicator_work;
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
@@ -434,18 +436,28 @@ static bool is_animating_locked(void) {
 }
 
 static int render(struct color inner, struct color outer) {
+    int rc = 0;
+
+    k_mutex_lock(&render_mutex, K_FOREVER);
+    k_mutex_lock(&state_mutex, K_FOREVER);
+    if (state.sleeping) {
+        inner = OFF;
+        outer = OFF;
+    }
+    k_mutex_unlock(&state_mutex);
+
     bool any_on = !color_equal(inner, OFF) || !color_equal(outer, OFF);
 
     if (!any_on && !state.rail_on) {
         state.last_valid = false;
-        return 0;
+        goto out;
     }
 
     if (any_on && !state.rail_on) {
-        int rc = gpio_pin_set_dt(&led_power, 1);
+        rc = gpio_pin_set_dt(&led_power, 1);
         if (rc < 0) {
             LOG_ERR("Failed to enable LED power: %d", rc);
-            return rc;
+            goto out;
         }
         k_msleep(5);
         state.rail_on = true;
@@ -458,10 +470,10 @@ static int render(struct color inner, struct color outer) {
             {.r = inner.r, .g = inner.g, .b = inner.b},
             {.r = outer.r, .g = outer.g, .b = outer.b},
         };
-        int rc = led_strip_update_rgb(led_strip, pixels, ARRAY_SIZE(pixels));
+        rc = led_strip_update_rgb(led_strip, pixels, ARRAY_SIZE(pixels));
         if (rc < 0) {
             LOG_ERR("Failed to update LEDs: %d", rc);
-            return rc;
+            goto out;
         }
         state.last_inner = inner;
         state.last_outer = outer;
@@ -469,16 +481,42 @@ static int render(struct color inner, struct color outer) {
     }
 
     if (!any_on) {
-        int rc = gpio_pin_set_dt(&led_power, 0);
+        rc = gpio_pin_set_dt(&led_power, 0);
         if (rc < 0) {
             LOG_ERR("Failed to disable LED power: %d", rc);
-            return rc;
+            goto out;
         }
         state.rail_on = false;
         state.last_valid = false;
     }
 
-    return 0;
+out:
+    k_mutex_unlock(&render_mutex);
+    return rc;
+}
+
+static int force_led_power_off(void) {
+    k_mutex_lock(&render_mutex, K_FOREVER);
+
+    int rc = gpio_pin_set_dt(&led_power, 0);
+    if (rc < 0) {
+        LOG_ERR("Failed to force LED power off: %d", rc);
+    } else {
+        state.rail_on = false;
+        state.last_valid = false;
+
+        k_mutex_lock(&state_mutex, K_FOREVER);
+        state.inner_active = false;
+        state.outer_active = false;
+        state.cur_inner = OFF;
+        state.cur_outer = OFF;
+        state.tgt_inner = OFF;
+        state.tgt_outer = OFF;
+        k_mutex_unlock(&state_mutex);
+    }
+
+    k_mutex_unlock(&render_mutex);
+    return rc;
 }
 
 static void indicator_work_handler(struct k_work *work) {
@@ -551,6 +589,7 @@ static void indicator_kick(void) {
 static int indicator_listener(const zmk_event_t *eh) {
     int64_t now = k_uptime_get();
     bool prefer_usb = false;
+    bool entering_sleep = false;
 
     k_mutex_lock(&state_mutex, K_FOREVER);
 
@@ -570,7 +609,8 @@ static int indicator_listener(const zmk_event_t *eh) {
         /* Keep low-frequency polling in IDLE so peripherals without USB events
          * can detect charging and show its animation. Stop only in deep sleep.
          */
-        set_sleeping_locked(activity->state == ZMK_ACTIVITY_SLEEP);
+        entering_sleep = activity->state == ZMK_ACTIVITY_SLEEP;
+        set_sleeping_locked(entering_sleep);
     }
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
@@ -602,6 +642,9 @@ static int indicator_listener(const zmk_event_t *eh) {
     if (prefer_usb) {
         zmk_endpoint_set_preferred_transport(ZMK_TRANSPORT_USB);
     }
+    if (entering_sleep) {
+        force_led_power_off();
+    }
     indicator_kick();
     return 0;
 }
@@ -619,6 +662,31 @@ ZMK_SUBSCRIPTION(cornix_indicator, zmk_usb_conn_state_changed);
 ZMK_SUBSCRIPTION(cornix_indicator, zmk_hid_indicators_changed);
 #endif
 #endif
+
+static int cornix_indicator_pm_action(const struct device *dev, enum pm_device_action action) {
+    ARG_UNUSED(dev);
+
+    switch (action) {
+    case PM_DEVICE_ACTION_SUSPEND:
+        k_mutex_lock(&state_mutex, K_FOREVER);
+        set_sleeping_locked(true);
+        k_mutex_unlock(&state_mutex);
+        return force_led_power_off();
+    case PM_DEVICE_ACTION_RESUME:
+        k_mutex_lock(&state_mutex, K_FOREVER);
+        set_sleeping_locked(false);
+        k_mutex_unlock(&state_mutex);
+        indicator_kick();
+        return 0;
+    default:
+        return -ENOTSUP;
+    }
+}
+
+PM_DEVICE_DEFINE(cornix_indicator_pm_dev, cornix_indicator_pm_action);
+DEVICE_DEFINE(cornix_indicator_pm_dev, "cornix_indicator_pm", NULL,
+              PM_DEVICE_GET(cornix_indicator_pm_dev), NULL, NULL, POST_KERNEL,
+              CONFIG_KERNEL_INIT_PRIORITY_DEFAULT, NULL);
 
 static int cornix_indicator_init(void) {
     if (!device_is_ready(led_strip)) {
