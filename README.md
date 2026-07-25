@@ -1,5 +1,26 @@
 # ZMK Keyboard for Cornix
 
+**English** | [中文](./README_zh.md)
+
+Community ZMK firmware for the Cornix split ergonomic keyboard, with full split-role configuration, battery power management, and Bluetooth central/peripheral setup per ZMK split guidelines.
+
+![image](images/cornix_with_dongle.png)
+![image](images/cornix_layout.png)
+
+## Features
+
+- **Full 50-key layout** (`LAYOUT_50`, with a 42-key variant available) — 5 layers (Base / Number / Symbol / Nav / FN), home-row mods, and layer-taps.
+- **EC11 rotary encoder** support (volume / brightness on the base layer).
+- **No-SoftDevice flash layout** — flash `zmk.uf2` directly, no SoftDevice restore needed (since v2.3).
+- **Multiple dongle options** via the `cornix_dongle_adapter` shield, plus an example display shield.
+- **Zephyr 4.1 + LVGL 9** toolchain (since v2.7).
+- **RGB LED indicator shield** (`cornix_indicator`) for battery / connection status (higher power draw).
+- **Reliability & recovery** (see below):
+  - BLE dual-disconnect fast-recovery fallback — recovers a stuck left/right + host link within ~5–10s without reboot loops.
+  - Firmware-halt self-recovery — fatal errors cold-reboot instead of halting, backed by a 30s hardware watchdog.
+  - Soft-off combo with single-key wake — press a cross-half combo to power down, tap one key to wake.
+- **Combos**: copy / paste on the base layer, plus the soft-off combo.
+
 ## Introduction to Boards and Shields
 
 This repository contains the ZMK firmware configuration for the Cornix split keyboard. Below is an explanation of the different boards and shields available in this project:
@@ -45,7 +66,19 @@ you have two solutions
 - [x] no-SD image, since v2.3
 - [x] support various of dongles
 - [x] upgrade to zephyr4.1 and lvgl9 , since v2.7, no dongle screen support yet
-- [x] rgb since in future v3
+- [x] BLE dual-disconnect fast-recovery fallback
+- [x] firmware-halt self-recovery (fatal-error cold reboot + hardware watchdog)
+- [x] soft-off combo with single-key wake
+- [ ] rgb, planned for v3
+- [ ] dongle-build soft off & combo (currently split-direct only)
+
+## Reliability & Recovery
+
+These features harden the wireless experience against rare BLE stalls and firmware halts. Design notes live under `docs/superpowers/specs/`.
+
+- **BLE dual-disconnect fallback** — when both the left↔right split link and the left↔host link drop at the same time and ZMK's native reconnect does not recover in time, the left half performs a single cold reboot after a 5s delay to re-init the BLE controller. It arms only after both links were connected, cancels the moment either link returns, and never fires under USB or during sleep — so it cannot form a boot loop.
+- **Firmware-halt self-recovery** — Zephyr's default fatal handler halts forever; this project overrides it to `LOG_PANIC()` + cold reboot, so BLE assertions / hard faults / stack overflows recover within seconds. A 30s nRF52840 hardware watchdog (fed by the indicator work loop) also catches deadlocks and interrupt storms that never reach the fatal path. Both layers apply to left and right halves.
+- **Soft-off with single-key wake** — a cross-half combo (base layer) powers both halves down into System OFF; a dedicated wake key on each half brings it back. Wake columns deliberately avoid the combo columns so a still-held combo key cannot immediately re-wake the board. Note: soft-off/combo is split-direct only for now — the dongle build does not yet define it.
 
 
 ### about RGB
@@ -339,11 +372,7 @@ If you prefer to build this project locally without adding it as a dependency in
 
 3. **Build the firmware**:
    ```bash
-<<<<<<< HEAD
-   west build -b cornix_main_left
-=======
    west build -b cornix_left
->>>>>>> 16dcccb (migrate to zephyr4 , disable dongle screen)
    west build -b cornix_right
    ```
 
