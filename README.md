@@ -58,15 +58,15 @@ you have two solutions
 
 ## TODO LIST
 
-- [x] 52 keys full layout keymap, since v2.0
+- [x] 48-key layout with 2 encoders, since v2.0
 - [x] ec11 encoder, since v2.2
 - [x] no-SD image, since v2.3
 - [x] support various of dongles
-- [x] upgrade to zephyr4.1 and lvgl9 , since v2.7, no dongle screen support yet
+- [x] upgrade to zephyr4.1 and lvgl9, since v2.7 (dongle screen still disabled)
+- [x] RGB status indicator (battery / charging / connection / caps-lock)
 - [x] BLE dual-disconnect fast-recovery fallback
 - [x] firmware-halt self-recovery (fatal-error cold reboot + hardware watchdog)
 - [x] soft-off combo with single-key wake
-- [ ] rgb, planned for v3
 - [ ] dongle-build soft off & combo (currently split-direct only)
 
 ## Reliability & Recovery
@@ -78,13 +78,9 @@ These features harden the wireless experience against rare BLE stalls and firmwa
 - **Soft-off with single-key wake** — a cross-half combo (base layer) powers both halves down into System OFF; a dedicated wake key on each half brings it back. Wake columns deliberately avoid the combo columns so a still-held combo key cannot immediately re-wake the board. Note: soft-off/combo is split-direct only for now — the dongle build does not yet define it.
 
 
-### about RGB
+### RGB status indicator
 
-Cornix shield has 2 RGB LEDs on each side, controled by PWM in the stock firmware.
-
-The replacement solution is adapting the RGB indicator module to light up these RGBs, to achieve the same effect as the stock firmware, which uses the RGB LEDs to indicate battery status and connection status.
-
-But it is not supported yet in this repository.  PR is welcome!
+Cornix has 2 addressable LEDs on each half. The `cornix_indicator` shield drives them as a status indicator — reproducing the stock RMK firmware's behaviour: battery level, charging, low-battery warning, BLE profile, split-link and caps-lock state. Enable it by adding the `cornix_indicator` shield to each half's build target. It keeps the LED rail powered, so it draws noticeably more current than the default no-LED build.
 
 ## Supported Hardware: Cornix Split Keyboard
 
