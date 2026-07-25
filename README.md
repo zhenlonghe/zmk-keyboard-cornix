@@ -4,9 +4,6 @@
 
 Community ZMK firmware for the Cornix split ergonomic keyboard, with full split-role configuration, battery power management, and Bluetooth central/peripheral setup per ZMK split guidelines.
 
-![image](images/cornix_with_dongle.png)
-![image](images/cornix_layout.png)
-
 ## Features
 
 - **Full 50-key layout** (`LAYOUT_50`, with a 42-key variant available) — 5 layers (Base / Number / Symbol / Nav / FN), home-row mods, and layer-taps.

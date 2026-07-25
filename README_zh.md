@@ -4,9 +4,6 @@
 
 Cornix 分体式人体工学键盘的社区 ZMK 固件，提供完整的分体角色配置、电池电源管理，以及符合 ZMK 分体式指南的蓝牙主/从设置。
 
-![image](images/cornix_with_dongle.png)
-![image](images/cornix_layout.png)
-
 ## 功能特性
 
 - **50 键完整布局**（`LAYOUT_50`，另有 42 键变体），5 个层（Base / Number / Symbol / Nav / FN），支持 home-row mods 和 layer-tap。
