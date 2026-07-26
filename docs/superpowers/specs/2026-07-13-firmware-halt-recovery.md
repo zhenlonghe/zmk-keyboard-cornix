@@ -36,11 +36,31 @@
 - 深睡为 System OFF，LFCLK 停止，看门狗随之暂停；唤醒即复位并重新武装，
   不会因深睡误触发。
 
+### 崩溃循环保护
+
+冷重启把“永久停机”换成了“重启”，需要防止确定性崩溃退化为无限重启循环：
+
+- 崩溃计数保存在 GPREGRET2（GPREGRET1 留给 UF2 bootloader magic），带
+  魔数校验，软复位与看门狗复位均可幸存，不写 flash；fatal 路径无锁操作。
+- fatal 冷重启在 fatal 处理器内计数；看门狗复位与 CPU lockup 不经过 fatal
+  处理器，由 EARLY 初始化阶段采样 RESETREAS 计数（仅寄存器访问，无内核与
+  驱动依赖），采样后清零。确定性早期 lockup 因此也逃不过计数。
+- 连续 3 次崩溃后经 retention bootmode 进入 UF2 bootloader 等待刷机，
+  而不是继续重启。该检查在 APPLICATION 初始化路径执行；`bootmode_set`
+  可能取锁，不能放进 fatal 或 EARLY 上下文。
+- 若崩溃发生在 APPLICATION 初始化之前（bootloader 检查永远执行不到），
+  fatal 处理器与 EARLY 采样器都会在计数严格超过阈值（第 4 次）时以无锁的
+  System OFF 断开重启循环并保电；“严格超过”给 APPLICATION 路径留出一次
+  进 bootloader 的机会。
+- 稳定运行 60 秒后计数清零。
+- 进入 bootloader 失败时清零计数并继续正常启动——绝不锁中断空转：持续尝试
+  或干净断电都好过耗电的砖。
+
 ## 边界
 
-- 两层机制左右半均生效（shield 同时用于 central 与 peripheral）。
-- 确定性启动崩溃会表现为重启循环而非停机；对键盘而言两者同样不可用，
-  但偶发故障可自愈。
+- 各层机制左右半均生效（shield 同时用于 central 与 peripheral）。
+- 确定性崩溃最多重启 3 次即停在 bootloader；连初始化都到不了的早期崩溃
+  在第 4 次进入 System OFF，均不会无限循环耗电。
 - 不修改 ZMK/Zephyr 上游源码。
 
 ## 验证
