@@ -26,9 +26,16 @@ CONFIG_CLOCK_CONTROL_NRF_K32SRC_RC=y
 
 CONFIG_ZMK_SPLIT=y
 
-# Enter deep sleep after 45 minutes of inactivity.
+# never output usb
+CONFIG_ZMK_USB=n
+
+# The split central is only tens of centimeters away.
+CONFIG_BT_CTLR_TX_PWR_0=y
+
+# Enter deep sleep after 20 minutes of inactivity; the USB-powered dongle
+# central stays up and a wake press reconnects in a couple of seconds.
 CONFIG_ZMK_SLEEP=y
-CONFIG_ZMK_IDLE_SLEEP_TIMEOUT=2700000
+CONFIG_ZMK_IDLE_SLEEP_TIMEOUT=1200000
 
 CONFIG_ZMK_STUDIO=n
 

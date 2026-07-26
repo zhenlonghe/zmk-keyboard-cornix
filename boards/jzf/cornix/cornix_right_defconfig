@@ -27,17 +27,18 @@ CONFIG_ZMK_SPLIT=y
 
 CONFIG_ZMK_BLE=y
 
-# Improve split BLE range and connection stability.
-CONFIG_BT_CTLR_TX_PWR_PLUS_8=y
+# The split central is only tens of centimeters away.
+CONFIG_BT_CTLR_TX_PWR_0=y
 
 # never output usb
 CONFIG_ZMK_USB=n
 
 CONFIG_INPUT=y
 
-# Enter deep sleep after 45 minutes of inactivity.
+# Enter deep sleep after 20 minutes, matching the central: once it sleeps the
+# split link drops and a longer timeout only buys idle advertising.
 CONFIG_ZMK_SLEEP=y
-CONFIG_ZMK_IDLE_SLEEP_TIMEOUT=2700000
+CONFIG_ZMK_IDLE_SLEEP_TIMEOUT=1200000
 
 # RGB
 #CONFIG_SPI=n
