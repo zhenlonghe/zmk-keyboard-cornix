@@ -14,27 +14,44 @@ struct cornix_reconnect_policy {
     bool pending;
 };
 
+struct cornix_reconnect_inputs {
+    bool host_connected;
+    bool peer_connected;
+    bool usb_active;
+    bool deep_sleeping;
+    bool recent_activity;
+};
+
 static inline enum cornix_reconnect_action
-cornix_reconnect_policy_update(struct cornix_reconnect_policy *policy, bool host_connected,
-                               bool peer_connected, bool usb_active, bool deep_sleeping) {
-    /* A working USB output means the user is not stranded; never reboot under them. */
-    if (deep_sleeping || usb_active) {
-        bool was_pending = policy->pending;
-        policy->pending = false;
-        return was_pending ? CORNIX_RECONNECT_CANCEL : CORNIX_RECONNECT_NONE;
+cornix_reconnect_cancel_pending(struct cornix_reconnect_policy *policy) {
+    bool was_pending = policy->pending;
+    policy->pending = false;
+    return was_pending ? CORNIX_RECONNECT_CANCEL : CORNIX_RECONNECT_NONE;
+}
+
+static inline enum cornix_reconnect_action
+cornix_reconnect_policy_update(struct cornix_reconnect_policy *policy,
+                               const struct cornix_reconnect_inputs *in) {
+    /* Never reboot a sleeping keyboard or one with another working output path. */
+    if (in->deep_sleeping || in->usb_active) {
+        return cornix_reconnect_cancel_pending(policy);
     }
 
-    if (host_connected && peer_connected) {
-        bool was_pending = policy->pending;
+    if (in->host_connected && in->peer_connected) {
         policy->armed = true;
-        policy->pending = false;
-        return was_pending ? CORNIX_RECONNECT_CANCEL : CORNIX_RECONNECT_NONE;
+        return cornix_reconnect_cancel_pending(policy);
     }
 
-    if (host_connected || peer_connected) {
-        bool was_pending = policy->pending;
-        policy->pending = false;
-        return was_pending ? CORNIX_RECONNECT_CANCEL : CORNIX_RECONNECT_NONE;
+    if (in->host_connected || in->peer_connected) {
+        return cornix_reconnect_cancel_pending(policy);
+    }
+
+    /* Activity gates new scheduling only: an idle dual drop stays armed until
+     * the next key press, while a recovery already pending keeps its timer even
+     * if the activity window lapses during the delay.
+     */
+    if (!in->recent_activity) {
+        return CORNIX_RECONNECT_NONE;
     }
 
     if (policy->armed && !policy->pending) {
@@ -45,11 +62,14 @@ cornix_reconnect_policy_update(struct cornix_reconnect_policy *policy, bool host
     return CORNIX_RECONNECT_NONE;
 }
 
+/* Activity gates scheduling only. Re-checking it here would silently drop a
+ * recovery whose delay outlived the activity window, so a pending recovery
+ * fires even if the user went idle while it waited.
+ */
 static inline bool cornix_reconnect_policy_expired(struct cornix_reconnect_policy *policy,
-                                                    bool host_connected, bool peer_connected,
-                                                    bool usb_active, bool deep_sleeping) {
-    if (!policy->armed || !policy->pending || host_connected || peer_connected || usb_active ||
-        deep_sleeping) {
+                                                   const struct cornix_reconnect_inputs *in) {
+    if (!policy->armed || !policy->pending || in->host_connected || in->peer_connected ||
+        in->usb_active || in->deep_sleeping) {
         policy->pending = false;
         return false;
     }

@@ -28,6 +28,7 @@
 #include <zmk/events/activity_state_changed.h>
 #include <zmk/events/battery_state_changed.h>
 #include <zmk/events/ble_active_profile_changed.h>
+#include <zmk/events/position_state_changed.h>
 #include <zmk/events/split_peripheral_status_changed.h>
 #include <zmk/workqueue.h>
 
@@ -67,7 +68,8 @@ LOG_MODULE_REGISTER(cornix_indicator, CONFIG_ZMK_LOG_LEVEL);
 #define FADE_STEP 3
 #define BATTERY_LOW 20
 #define BATTERY_FULL 95
-#define RECONNECT_RECOVERY_DELAY_MS 5000
+#define RECONNECT_RECOVERY_DELAY_MS 30000
+#define RECONNECT_RECENT_ACTIVITY_MS 60000
 
 struct color {
     uint8_t r;
@@ -145,6 +147,7 @@ static struct k_work_delayable indicator_work;
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 static struct cornix_reconnect_policy reconnect_policy;
 static struct k_work_delayable reconnect_recovery_work;
+static int64_t last_key_activity = -RECONNECT_RECENT_ACTIVITY_MS;
 
 /* ZMK currently exposes split connection state through the active transport. */
 extern const struct zmk_split_transport_central *active_transport;
@@ -304,14 +307,23 @@ static bool usb_output_active(void) {
 #endif
 }
 
-static void update_reconnect_recovery_locked(void) {
+static bool reconnect_activity_is_recent(int64_t now) {
+    return elapsed_less_than(now, last_key_activity, RECONNECT_RECENT_ACTIVITY_MS);
+}
+
+static void update_reconnect_recovery_locked(int64_t now) {
     if (!state.initialized) {
         return;
     }
 
-    enum cornix_reconnect_action action =
-        cornix_reconnect_policy_update(&reconnect_policy, state.ble_connected,
-                                       state.peer_connected, usb_output_active(), state.sleeping);
+    struct cornix_reconnect_inputs inputs = {
+        .host_connected = state.ble_connected,
+        .peer_connected = state.peer_connected,
+        .usb_active = usb_output_active(),
+        .deep_sleeping = state.sleeping,
+        .recent_activity = reconnect_activity_is_recent(now),
+    };
+    enum cornix_reconnect_action action = cornix_reconnect_policy_update(&reconnect_policy, &inputs);
 
     if (action == CORNIX_RECONNECT_SCHEDULE) {
         k_work_reschedule_for_queue(zmk_workqueue_lowprio_work_q(), &reconnect_recovery_work,
@@ -329,9 +341,14 @@ static void reconnect_recovery_work_handler(struct k_work *work) {
     set_peer_connected_locked(read_peer_connected(), now);
     set_ble_state_locked(zmk_ble_active_profile_index(), zmk_ble_active_profile_is_connected(),
                          now);
-    bool should_reboot =
-        cornix_reconnect_policy_expired(&reconnect_policy, state.ble_connected,
-                                        state.peer_connected, usb_output_active(), state.sleeping);
+    struct cornix_reconnect_inputs inputs = {
+        .host_connected = state.ble_connected,
+        .peer_connected = state.peer_connected,
+        .usb_active = usb_output_active(),
+        .deep_sleeping = state.sleeping,
+        .recent_activity = reconnect_activity_is_recent(now),
+    };
+    bool should_reboot = cornix_reconnect_policy_expired(&reconnect_policy, &inputs);
     k_mutex_unlock(&state_mutex);
 
     if (should_reboot) {
@@ -541,7 +558,7 @@ static void indicator_work_handler(struct k_work *work) {
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
     set_ble_state_locked(zmk_ble_active_profile_index(), zmk_ble_active_profile_is_connected(),
                          now);
-    update_reconnect_recovery_locked();
+    update_reconnect_recovery_locked(now);
 #endif
 
     refresh_low_battery_locked(now);
@@ -614,6 +631,11 @@ static int indicator_listener(const zmk_event_t *eh) {
     }
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+    const struct zmk_position_state_changed *position = as_zmk_position_state_changed(eh);
+    if (position != NULL && position->state) {
+        last_key_activity = now;
+    }
+
 #if IS_ENABLED(CONFIG_ZMK_USB)
     const struct zmk_usb_conn_state_changed *usb = as_zmk_usb_conn_state_changed(eh);
     if (usb != NULL && zmk_usb_is_hid_ready()) {
@@ -635,7 +657,7 @@ static int indicator_listener(const zmk_event_t *eh) {
 #endif
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-    update_reconnect_recovery_locked();
+    update_reconnect_recovery_locked(now);
 #endif
 
     k_mutex_unlock(&state_mutex);
@@ -655,6 +677,7 @@ ZMK_SUBSCRIPTION(cornix_indicator, zmk_split_peripheral_status_changed);
 ZMK_SUBSCRIPTION(cornix_indicator, zmk_activity_state_changed);
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 ZMK_SUBSCRIPTION(cornix_indicator, zmk_ble_active_profile_changed);
+ZMK_SUBSCRIPTION(cornix_indicator, zmk_position_state_changed);
 #if IS_ENABLED(CONFIG_ZMK_USB)
 ZMK_SUBSCRIPTION(cornix_indicator, zmk_usb_conn_state_changed);
 #endif
