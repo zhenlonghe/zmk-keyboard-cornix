@@ -11,10 +11,10 @@ Community ZMK firmware for the Cornix split ergonomic keyboard, with full split-
 - **No-SoftDevice flash layout** — flash `zmk.uf2` directly, no SoftDevice restore needed (since v2.3).
 - **Multiple dongle options** via the `cornix_dongle_adapter` shield, plus an example display shield.
 - **Zephyr 4.1 + LVGL 9** toolchain (since v2.7).
-- **RGB LED indicator shield** (`cornix_indicator`) for battery / connection status (higher power draw).
+- **RGB LED indicator shield** (`cornix_indicator`) for battery / connection status (auto-dims and power-gates the LEDs; small extra power draw).
 - **Reliability & recovery** (see below):
-  - BLE dual-disconnect fast-recovery fallback — recovers a stuck left/right + host link within ~5–10s without reboot loops.
-  - Firmware-halt self-recovery — fatal errors cold-reboot instead of halting, backed by a 30s hardware watchdog.
+  - BLE dual-disconnect recovery fallback — re-initializes a stuck left/right + host link after 30s, gated on key activity at the moment of the drop.
+  - Firmware-halt self-recovery — fatal errors cold-reboot instead of halting, backed by a 30s hardware watchdog and crash-loop guard.
   - Soft-off combo with single-key wake — press a cross-half combo to power down, tap one key to wake.
 - **Combos**: copy / paste on the base layer, plus the soft-off combo.
 
@@ -36,7 +36,7 @@ The project includes several specialized shields that provide additional functio
 
 - **`cornix_dongle_adapter`**: Provides common functionality for the matrix and Bluetooth functionality for dongle configurations. This shield is required when using the Cornix with a custom dongle.
 - **`cornix_dongle_eyelash`**: An example shield for setting up display device for the dongle board. This is used when the board doesn't already have `zephyr,display` in the device tree.
-- **`cornix_indicator`**: A shield that enables RGB LED indicators for battery status and connection status. Note that using this shield consumes more power.
+- **`cornix_indicator`**: A shield that enables RGB LED indicators for battery status and connection status. It gates LED power off when idle, so the extra power draw is modest.
 
 ---
 
@@ -73,14 +73,45 @@ you have two solutions
 
 These features harden the wireless experience against rare BLE stalls and firmware halts. Design notes live under `docs/superpowers/specs/`.
 
-- **BLE dual-disconnect fallback** — when both the left↔right split link and the left↔host link drop at the same time and ZMK's native reconnect does not recover in time, the left half performs a single cold reboot after a 5s delay to re-init the BLE controller. It arms only after both links were connected, cancels the moment either link returns, and never fires under USB or during sleep — so it cannot form a boot loop.
-- **Firmware-halt self-recovery** — Zephyr's default fatal handler halts forever; this project overrides it to `LOG_PANIC()` + cold reboot, so BLE assertions / hard faults / stack overflows recover within seconds. A 30s nRF52840 hardware watchdog (fed by the indicator work loop) also catches deadlocks and interrupt storms that never reach the fatal path. Both layers apply to left and right halves.
+- **BLE dual-disconnect fallback** — when both the left↔right split link and the left↔host link drop at the same time and ZMK's native reconnect does not recover in time, the left half performs a single cold reboot after a 30s delay to re-init the BLE controller. It arms only after both links were connected, cancels the moment either link returns, and requires key activity within the 60s before the drop (an idle drop stays armed and schedules on the next left-half key press). It never fires under USB or during sleep.
+- **Firmware-halt self-recovery** — Zephyr's default fatal handler halts forever; this project overrides it to `LOG_PANIC()` + cold reboot. A 30s nRF52840 hardware watchdog (fed by the indicator work loop) also catches deadlocks and interrupt storms that never reach the fatal path. Fatal, watchdog, and CPU-lockup recoveries share a retained crash counter: three consecutive failures enter the bootloader instead of restarting forever (a crash too early to reach that check powers off on the fourth), while 60s of stable runtime clears the counter. These layers apply to both halves.
 - **Soft-off with single-key wake** — a cross-half combo (base layer) powers both halves down into System OFF; a dedicated wake key on each half brings it back. Wake columns deliberately avoid the combo columns so a still-held combo key cannot immediately re-wake the board. Note: soft-off/combo is split-direct only for now — the dongle build does not yet define it.
 
 
 ### RGB status indicator
 
-Cornix has 2 addressable LEDs on each half. The `cornix_indicator` shield drives them as a status indicator — reproducing the stock RMK firmware's behaviour: battery level, charging, low-battery warning, BLE profile, split-link and caps-lock state. Enable it by adding the `cornix_indicator` shield to each half's build target. It keeps the LED rail powered, so it draws noticeably more current than the default no-LED build.
+Cornix has 2 addressable LEDs on each half — an **inner** and an **outer** pixel. The `cornix_indicator` shield drives them as a status indicator, reproducing the stock RMK firmware's behaviour. Enable it by adding the `cornix_indicator` shield to each half's build target.
+
+All indications fade in and out smoothly, and every connection animation goes dark on its own after at most 60 s. Whenever both pixels are dark the shield cuts the LED power rail entirely, so a settled keyboard spends nearly all its time with the LEDs unpowered; deep sleep and soft-off force the rail off outright. The shield still costs somewhat more than the no-LED build (status polling, brief animations), but there is no steady LED drain.
+
+**Inner LED — battery and charging (both halves); on the left half it also shows the split link.** Priority: charging > low battery > split link.
+
+| State | Pattern |
+| --- | --- |
+| Charging (below 95 %) | green breathing |
+| Charge complete (≥ 95 %, still plugged) | solid green for 3 s, then off |
+| Battery ≤ 20 % (not charging) | coral double-blink burst for 5 s, repeated every 5 min |
+| Right half lost (left half only) | blue breathing, up to 60 s, then dark |
+| Right half (re)connected (left half only) | solid blue for 3 s, then off |
+
+**Outer LED — left half (central), host-facing.** The 3 s connect notice wins over the advertising animation; caps lock shows when neither is active.
+
+| State | Pattern |
+| --- | --- |
+| Host connected / profile switched | solid profile colour for 3 s, then off |
+| Advertising (profile not connected) | profile-colour breathing, up to 60 s, then dark |
+| Caps Lock on | solid amber while active |
+
+Profile colours 0–4: purple, green, blue, red, pink.
+
+**Outer LED — right half (peripheral).**
+
+| State | Pattern |
+| --- | --- |
+| Connected to the left half | solid blue for 3 s, then off |
+| Searching for the left half | blue breathing, up to 60 s, then dark |
+
+Each half shows its own battery on its inner LED.
 
 ## Supported Hardware: Cornix Split Keyboard
 
@@ -231,7 +262,7 @@ Edit the `build.yaml` file, add:
 > [!NOTE]
 > 1. If you are using (default) cornix without dongle, choose "cornix_left", "cornix_right" and "reset".
 > 2. If you are using cornix with dongle, choose "cornix_dongle". "cornix_left_for_dongle", "cornix_right" and "reset".
-> 3. Add "cornix_indicator" shield to enable RGB led light. It consumes much more power, use at your own risk.
+> 3. Add "cornix_indicator" shield to enable RGB led light. Animations time out and the LED rail is gated off when idle, so the extra power draw is modest.
 
 ```yaml
 include:
