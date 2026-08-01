@@ -29,8 +29,9 @@ CONFIG_ZMK_SPLIT=y
 # never output usb
 CONFIG_ZMK_USB=n
 
-# The split central is only tens of centimeters away.
-CONFIG_BT_CTLR_TX_PWR_0=y
+# Match the central's +8 dBm; see cornix_right_defconfig for the rationale.
+CONFIG_BT_CTLR_TX_PWR_PLUS_8=y
+CONFIG_BT_CTLR_PHY_2M=n
 
 # Enter deep sleep after 20 minutes of inactivity; the USB-powered dongle
 # central stays up and a wake press reconnects in a couple of seconds.

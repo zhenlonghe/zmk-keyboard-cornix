@@ -27,8 +27,16 @@ CONFIG_ZMK_SPLIT=y
 
 CONFIG_ZMK_BLE=y
 
-# The split central is only tens of centimeters away.
-CONFIG_BT_CTLR_TX_PWR_0=y
+# Match the central's +8 dBm. The split link is bidirectional: at 0 dBm the
+# peripheral->central direction was 8 dB weaker than the reverse, so it was the
+# first to break down once the halves were spaced further apart.
+CONFIG_BT_CTLR_TX_PWR_PLUS_8=y
+
+# Force the split link onto 1M PHY. 2M buys nothing for a few bytes of key
+# position data and costs ~3 dB of receiver sensitivity; disabling it on the
+# peripheral makes the pair negotiate 1M while the central keeps 2M for its
+# host connection.
+CONFIG_BT_CTLR_PHY_2M=n
 
 # never output usb
 CONFIG_ZMK_USB=n
