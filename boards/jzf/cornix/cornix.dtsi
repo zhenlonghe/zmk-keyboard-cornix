@@ -28,7 +28,10 @@
 
     behaviors {
         csoff: csoff {
-            compatible = "zmk,behavior-soft-off";
+            // Cornix copy of zmk,behavior-soft-off that white-double-blinks
+            // the status LEDs before powering off, confirming soft off on
+            // each half (a half that doesn't blink didn't get the command).
+            compatible = "zmk,behavior-cornix-soft-off";
             #binding-cells = <0>;
             hold-time-ms = <1>;
             // Peripheral must power off while the BLE link is still alive;

@@ -536,6 +536,46 @@ static int force_led_power_off(void) {
     return rc;
 }
 
+/* Blocking soft-off confirmation blink, called by behavior_cornix_soft_off.c
+ * on both halves right before zmk_pm_soft_off(). Bypasses render(): sleeping
+ * is set first (so render() would force the pixels off) and the render loop
+ * must not repaint mid-blink — holding render_mutex across the k_msleep()s
+ * blocks it until the flash is done.
+ */
+void cornix_indicator_soft_off_flash(void) {
+    if (!state.initialized) {
+        return;
+    }
+
+    k_mutex_lock(&state_mutex, K_FOREVER);
+    set_sleeping_locked(true);
+    k_mutex_unlock(&state_mutex);
+    k_work_cancel_delayable(&indicator_work);
+
+    k_mutex_lock(&render_mutex, K_FOREVER);
+    if (gpio_pin_set_dt(&led_power, 1) == 0) {
+        if (!state.rail_on) {
+            k_msleep(5);
+        }
+        state.rail_on = true;
+        state.last_valid = false;
+
+        static const struct led_rgb white = {.r = 20, .g = 20, .b = 20};
+        for (int i = 0; i < 2; i++) {
+            struct led_rgb pixels[2] = {white, white};
+            led_strip_update_rgb(led_strip, pixels, ARRAY_SIZE(pixels));
+            k_msleep(120);
+            pixels[0] = (struct led_rgb){0};
+            pixels[1] = (struct led_rgb){0};
+            led_strip_update_rgb(led_strip, pixels, ARRAY_SIZE(pixels));
+            k_msleep(80);
+        }
+    }
+    k_mutex_unlock(&render_mutex);
+
+    force_led_power_off();
+}
+
 static void indicator_work_handler(struct k_work *work) {
     int64_t now = k_uptime_get();
     struct color inner;
