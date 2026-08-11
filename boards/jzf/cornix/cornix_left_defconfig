@@ -24,6 +24,13 @@ CONFIG_FLASH_MAP=y
 
 CONFIG_CLOCK_CONTROL_NRF=y
 CONFIG_CLOCK_CONTROL_NRF_K32SRC_RC=y
+# The RC LFCLK drifts with die temperature. Stock calibration runs every 4 s
+# and may skip once if the temperature looks stable (~8 s worst case between
+# calibrations). Calibrate every 1 s unconditionally to shrink the drift
+# window that causes missed connection-event anchors; costs ~5-10 uA.
+CONFIG_CLOCK_CONTROL_NRF_K32SRC_RC_CALIBRATION=y
+CONFIG_CLOCK_CONTROL_NRF_CALIBRATION_PERIOD=1000
+CONFIG_CLOCK_CONTROL_NRF_CALIBRATION_MAX_SKIP=0
 
 # e73 config end
 
@@ -37,6 +44,18 @@ CONFIG_ZMK_SPLIT_BLE_PREF_TIMEOUT=200
 # 增加键盘的 BLE 无线电的发射功率，用解决延迟和左右通讯不佳的问题
 CONFIG_BT_CTLR_TX_PWR_PLUS_8=y
 CONFIG_ZMK_BLE_EXPERIMENTAL_CONN=y
+
+# Tighten BLE sync to fix typing stutter. Both halves run on RC-only LFCLK
+# (no 32k crystal), so clock drift accumulates between connection events; at
+# the default latency of 30 a link coasts ~232 ms between forced sync points,
+# long enough to miss anchors and trigger retransmit chains felt as lag.
+# Latency 0 forces a sync every 7.5 ms — DIAGNOSTIC setting: it costs the
+# right half ~0.7 mA extra while connected-idle (roughly 5x idle draw). If
+# stutter is gone after a few days, settle at 5 (~130 uA, near-free); if
+# stutter persists, the problem is the host link / RF environment, not split
+# sync — revert to 10 and pursue USB or the dongle setup instead.
+CONFIG_ZMK_SPLIT_BLE_PREF_LATENCY=0
+CONFIG_BT_PERIPHERAL_PREF_LATENCY=10
 # 更改键盘默认显示名称
 
 # 电池电量报告间隔由 cornix_indicator.conf 的 CONFIG_ZMK_BATTERY_REPORT_INTERVAL 决定
