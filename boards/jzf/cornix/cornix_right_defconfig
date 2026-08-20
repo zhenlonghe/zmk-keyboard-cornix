@@ -38,9 +38,8 @@ CONFIG_ZMK_BLE=y
 CONFIG_BT_CTLR_TX_PWR_PLUS_8=y
 
 # Force the split link onto 1M PHY. 2M buys nothing for a few bytes of key
-# position data and costs ~3 dB of receiver sensitivity; disabling it on the
-# peripheral makes the pair negotiate 1M while the central keeps 2M for its
-# host connection.
+# position data and costs ~4 dB of receiver sensitivity. The central now
+# disables 2M too, so every link in the system runs 1M for range.
 CONFIG_BT_CTLR_PHY_2M=n
 
 # never output usb

@@ -24,6 +24,11 @@
         compatible = "zmk,kscan-gpio-matrix";
         diode-direction = "col2row";
         wakeup-source;
+        // Shave 2 ms of constant press latency (ZMK default is 5 ms).
+        // Revert to 4-5 if repeated characters ever show up (switch contact
+        // bounce outlasting 3 ms). Release debounce stays at the default:
+        // lowering it adds chatter risk with no felt latency benefit.
+        debounce-press-ms = <3>;
     };
 
     behaviors {

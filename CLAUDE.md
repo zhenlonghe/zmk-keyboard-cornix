@@ -58,7 +58,7 @@ Hardware facts that constrain edits:
 - **Matrix**: `zmk,kscan-gpio-matrix`, col2row, 4 rows × 7 cols per half. The two halves use *different, swapped* row/col pins (see each `.dts`); the right half applies `col-offset = <7>` onto the 14-column `default_transform`.
 - `pinmux.c` drives P0.05 low at init to enable the onboard charger (`CONFIG_BOARD_CORNIX_CHARGER`).
 - Encoders (`alps,ec11`) are declared disabled in `cornix_sensors.dtsi` and enabled per-half in the `.dts`.
-- Radio tuning convention: **both** sides run `CONFIG_BT_CTLR_TX_PWR_PLUS_8`; peripherals disable `CONFIG_BT_CTLR_PHY_2M` so the split link negotiates 1M (better sensitivity) while the central keeps 2M for the host link. The defconfigs carry the rationale in comments — read them before retuning.
+- Radio tuning convention: **both** sides run `CONFIG_BT_CTLR_TX_PWR_PLUS_8` and disable `CONFIG_BT_CTLR_PHY_2M`, so every link (split and host) runs 1M PHY for its ~4 dB sensitivity advantage at range. The defconfigs carry the rationale in comments — read them before retuning.
 
 ### Shields (`boards/shields/`)
 
@@ -76,7 +76,7 @@ Hardware facts that constrain edits:
 
 - `cornix.keymap` — 50-key layout, 5 layers (Base/Number/Symbol/Nav/FN), home-row mods (`hml`/`hmr`, balanced flavor, cross-hand `hold-trigger-key-positions`), and the copy/paste combos. `cornix42.keymap` is the 42-key variant.
 - **The cross-half soft-off combo is *not* in the keymap** — the `csoff` behavior and `soft_off_combo` (key positions 41+46, `split-peripheral-off-on-press`) live in `boards/jzf/cornix/cornix.dtsi`, and the matching System-OFF wake wiring (`zmk,gpio-key-wakeup-trigger`, driving col 4) lives in each half's `.dts`. The comments there explain why the wake column must not be a combo key's column — read them before touching soft off.
-- `config/includes/cornix54.h` documents position names (LT0/RM3/…) for a 54-key mapping but **is not `#include`d by any keymap** — it is reference material, not live code.
+- `config/includes/cornix50.h` documents position names (LT0/RM3/…) for the 50-key mapping but **is not `#include`d by any keymap** — it is reference material, not live code.
 - `west.yml` — pins ZMK, `zmk-helpers`, and `zmk-dongle-display` by SHA. Bump deliberately (see CI note above).
 
 ### Design docs
