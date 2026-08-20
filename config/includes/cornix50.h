@@ -1,4 +1,4 @@
-/*                                      52 KEY MATRIX / LAYOUT MAPPING
+/*                                      50 KEY MATRIX / LAYOUT MAPPING
 
   ╭────────────────────────╮               ╭────────────────────────╮
   │  0   1   2   3   4   5 │               │  6   7   8   9  10  11 │
@@ -74,9 +74,9 @@
 #define RH3 31
 
 #define LP0 40  // left-palm keys
-#define LP1 41
-#define LP2 42
+#define LP1 39
+#define LP2 38
 
-#define RP0 49  // right-paml keys
-#define RP1 50
-#define RP2 51
+#define RP0 47  // right-palm keys
+#define RP1 48
+#define RP2 49
