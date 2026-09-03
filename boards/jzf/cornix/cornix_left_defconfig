@@ -56,12 +56,12 @@ CONFIG_BT_CTLR_PHY_2M=n
 # (no 32k crystal), so clock drift accumulates between connection events; at
 # the default latency of 30 a link coasts ~232 ms between forced sync points,
 # long enough to miss anchors and trigger retransmit chains felt as lag.
-# Latency 0 forces a sync every 7.5 ms — DIAGNOSTIC setting: it costs the
-# right half ~0.7 mA extra while connected-idle (roughly 5x idle draw). If
-# stutter is gone after a few days, settle at 5 (~130 uA, near-free); if
-# stutter persists, the problem is the host link / RF environment, not split
-# sync — revert to 10 and pursue USB or the dongle setup instead.
-CONFIG_ZMK_SPLIT_BLE_PREF_LATENCY=0
+# Diagnosed at latency 0 (forced sync every 7.5 ms, ~0.7 mA extra on the
+# right half): stutter stayed gone, so settled at 5 — a forced sync every
+# ~45 ms keeps RC drift well inside the anchor window for ~130 uA. If
+# stutter ever returns, drop back to 0 to re-run the diagnosis before
+# blaming the host link / RF environment.
+CONFIG_ZMK_SPLIT_BLE_PREF_LATENCY=5
 CONFIG_BT_PERIPHERAL_PREF_LATENCY=10
 # 更改键盘默认显示名称
 
