@@ -20,7 +20,7 @@ Clones/caches ZMK under `.build/zmk-docker/`, builds `cornix_left` + `cornix_rig
 
 ### Build (Nix + Justfile)
 
-`flake.nix` provides the Zephyr SDK devshell; the `Justfile` drives west builds (`just list`, `just build <expr>` filters `build.yaml` targets, `just draw <keyboard>` renders keymap SVGs, `just test <path>` runs ZMK native_posix snapshot tests). **The Justfile expects `ZMK_LIB_PREFIX` and a `config2/` dir that this repo does not track** — `build-docker.sh` is the reliable local path.
+`flake.nix` provides the Zephyr SDK devshell; the `Justfile` drives west builds (`just list`, `just build <expr>` filters `build.yaml` targets, `just draw <keyboard>` renders keymap SVGs, `just test <path>` runs ZMK native_posix snapshot tests). **Build/test recipes expect a `ZMK_LIB_PREFIX` west workspace that this repo does not track** — `build-docker.sh` is the reliable local path.
 
 ### Tests
 
@@ -37,7 +37,7 @@ This is the only test that runs in CI. There are no ZMK snapshot tests checked i
 - `.github/workflows/build.yml` — runs the policy test, then builds the `build.yaml` matrix via ZMK's reusable `build-user-config.yml`. Triggered on pushes touching `boards/`, `config/`, `tests/`.
 - `.github/workflows/release_with_tag.yml` — on `v*.*` tags, builds the same matrix and publishes a zip. A tag containing any letter (e.g. `v1.2-beta`) is marked prerelease.
 
-**The ZMK revision is hardcoded in three places** — `config/west.yml`, `build.yml`, and `release_with_tag.yml`. Bump all three together.
+**The ZMK revision is hardcoded in three places** — `config/west.yml`, `build.yml`, and `release_with_tag.yml`. Bump all three together; the `pin-check` job in `build.yml` fails CI if they drift.
 
 ## Architecture
 

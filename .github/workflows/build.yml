@@ -17,6 +17,27 @@ jobs:
       - uses: actions/checkout@v4
       - run: cc -Wall -Wextra -Werror -I. -o /tmp/policy_test tests/reconnect_policy_test.c && /tmp/policy_test
 
+  # The ZMK revision is hardcoded in three places (config/west.yml plus the
+  # `uses:` lines in build.yml and release_with_tag.yml, which GitHub does not
+  # allow to be dynamic). Fail fast if a bump missed one of them.
+  pin-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check ZMK revision is pinned consistently
+        run: |
+          west_rev=$(awk '$1 == "-" && $2 == "name:" && $3 == "zmk" {found=1} found && $1 == "revision:" {print $2; exit}' config/west.yml)
+          echo "config/west.yml pins zmk @ $west_rev"
+          status=0
+          for wf in .github/workflows/build.yml .github/workflows/release_with_tag.yml; do
+            wf_rev=$(grep -oE 'build-user-config\.yml@[0-9a-f]+' "$wf" | cut -d@ -f2)
+            if [ "$wf_rev" != "$west_rev" ]; then
+              echo "::error file=$wf::pins ZMK @ ${wf_rev:-<none>} but config/west.yml pins @ $west_rev"
+              status=1
+            fi
+          done
+          exit $status
+
   build:
-    # Pinned to the same ZMK revision as config/west.yml.
+    # Pinned to the same ZMK revision as config/west.yml (verified by pin-check).
     uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@904c9aec8822d79149d42c8a9a77e8828eb08f5a
