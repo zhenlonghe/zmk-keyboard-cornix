@@ -18,6 +18,12 @@ Community ZMK firmware for the Cornix split ergonomic keyboard, with full split-
   - Soft-off combo with single-key wake — press a cross-half combo to power down, tap one key to wake.
 - **Combos**: copy / paste on the base layer, plus the soft-off combo.
 
+## Keymap
+
+![Cornix keymap](draw/cornix_keymap.svg)
+
+Generated from `config/cornix.keymap` by `python3 draw/gen_keymap.py`, which also writes an editable `draw/cornix_keymap.drawio.xml`. Re-run it after changing the keymap; CI fails if the committed diagram is stale.
+
 ## Introduction to Boards and Shields
 
 This repository contains the ZMK firmware configuration for the Cornix split keyboard. Below is an explanation of the different boards and shields available in this project:

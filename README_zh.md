@@ -18,6 +18,12 @@ Cornix 分体式人体工学键盘的社区 ZMK 固件，提供完整的分体�
   - 软关机 combo + 单键唤醒 —— 按跨半 combo 关机，单键唤醒。
 - **Combo 组合键**：基础层的复制 / 粘贴，以及软关机 combo。
 
+## 键位图
+
+![Cornix 键位图](draw/cornix_keymap.svg)
+
+由 `python3 draw/gen_keymap.py` 从 `config/cornix.keymap` 生成，同时输出可在 draw.io 中编辑的 `draw/cornix_keymap.drawio.xml`。修改键位后请重新运行；提交的图过期时 CI 会失败。
+
 ## 开发板和扩展板介绍
 
 本仓库包含用于 Cornix 分体式键盘的 ZMK 固件配置。以下是该项目中可用的不同开发板和扩展板的说明：

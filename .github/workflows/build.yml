@@ -5,6 +5,7 @@ on:
     paths:
       - "boards/**"
       - "config/**"
+      - "draw/**"
       - "tests/**"
       - ".github/workflows/build.yml"
     tags-ignore:
@@ -16,6 +17,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cc -Wall -Wextra -Werror -I. -o /tmp/policy_test tests/reconnect_policy_test.c && /tmp/policy_test
+
+  # draw/cornix_keymap.{svg,drawio.xml} are generated from the keymap and
+  # embedded in the READMEs; fail if someone changed the keymap without
+  # re-running the generator.
+  keymap-draw:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 draw/gen_keymap.py
+      - run: git diff --exit-code -- draw/ || { echo "::error::draw/ is stale — run python3 draw/gen_keymap.py and commit"; exit 1; }
 
   # The ZMK revision is hardcoded in three places (config/west.yml plus the
   # `uses:` lines in build.yml and release_with_tag.yml, which GitHub does not

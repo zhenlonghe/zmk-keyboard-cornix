@@ -22,6 +22,14 @@ Clones/caches ZMK under `.build/zmk-docker/`, builds `cornix_left` + `cornix_rig
 
 `flake.nix` provides the Zephyr SDK devshell; the `Justfile` drives west builds (`just list`, `just build <expr>` filters `build.yaml` targets, `just draw <keyboard>` renders keymap SVGs, `just test <path>` runs ZMK native_posix snapshot tests). **Build/test recipes expect a `ZMK_LIB_PREFIX` west workspace that this repo does not track** — `build-docker.sh` is the reliable local path.
 
+### Keymap diagram
+
+```bash
+python3 draw/gen_keymap.py
+```
+
+Parses `config/cornix.keymap` + `cornix-layouts.dtsi` and rewrites `draw/cornix_keymap.svg` (embedded in both READMEs) and `draw/cornix_keymap.drawio.xml`. **Run it after every keymap change and commit the outputs** — the `keymap-draw` CI job diffs them. Free-form annotations (home-row mods, soft-off, encoders) live in the `NOTES` / `LAYER_NOTES` tables at the top of the script; keycode labels in `KEY_LABEL`.
+
 ### Tests
 
 The reconnect policy is pure C logic, unit-tested on the host (same command as CI):
@@ -34,7 +42,7 @@ This is the only test that runs in CI. There are no ZMK snapshot tests checked i
 
 ### CI
 
-- `.github/workflows/build.yml` — runs the policy test, then builds the `build.yaml` matrix via ZMK's reusable `build-user-config.yml`. Triggered on pushes touching `boards/`, `config/`, `tests/`.
+- `.github/workflows/build.yml` — runs the policy test, then builds the `build.yaml` matrix via ZMK's reusable `build-user-config.yml`. Also regenerates the keymap diagram and fails if `draw/` is stale. Triggered on pushes touching `boards/`, `config/`, `draw/`, `tests/`.
 - `.github/workflows/release_with_tag.yml` — on `v*.*` tags, builds the same matrix and publishes a zip. A tag containing any letter (e.g. `v1.2-beta`) is marked prerelease.
 
 **The ZMK revision is hardcoded in three places** — `config/west.yml`, `build.yml`, and `release_with_tag.yml`. Bump all three together; the `pin-check` job in `build.yml` fails CI if they drift.
