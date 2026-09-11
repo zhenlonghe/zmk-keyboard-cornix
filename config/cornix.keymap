@@ -88,7 +88,7 @@
                 &kp ESC     &kp Q        &kp W          &kp E         &kp R         &kp T                          &kp Y             &kp U          &kp I          &kp O          &kp P           &kp BSPC
                 &kp CAPS    &hml LALT A  &hml LSHIFT S  &hml LCTRL D  &hml LGUI F   &kp G                          &kp H             &hmr RGUI J    &hmr RCTRL K   &hmr RSHIFT L  &hmr RALT SEMI  &kp ENTER
                 &kp LSHIFT  &kp Z        &kp X          &kp C         &kp V         &kp B            &none  &none  &kp N             &kp M          &kp COMMA      &kp DOT        &kp FSLH        &hmr RSHIFT UP
-                &kp LCTRL   &kp LALT     &kp LGUI       &vlt NAV BSPC &vlt NUM TAB  &kp SPACE                      &hmr HYPER SPACE  &vlt SYM BSPC  &vlt FN ESC    &kp LEFT       &kp DOWN        &kp RIGHT
+                &kp LCTRL   &kp LALT     &kp LGUI       &vlt NAV BSPC &vlt NUM TAB  &hml HYPER SPACE               &hmr HYPER SPACE  &vlt SYM BSPC  &vlt FN ESC    &kp LEFT       &kp DOWN        &kp RIGHT
             >;
             sensor-bindings = <
                 &inc_dec_kp C_VOL_UP C_VOL_DN
@@ -101,7 +101,7 @@
             bindings = <
                 &none        &kp N1        &kp N2      &kp N3    &kp N4      &kp N5                      &kp N6     &kp N7     &kp N8     &kp N9     &kp N0  &none
                 &none        &kp C_BRI_UP  &kp C_PREV  &kp C_PP  &kp C_NEXT  &kp C_VOL_UP                &kp LEFT   &kp DOWN   &kp UP     &kp RIGHT  &none   &none
-                &none        &kp C_BRI_DN  &none       &none     &none       &kp C_VOL_DN  &none  &none  &none      &kp PG_DN  &kp PG_UP  &kp DOT    &none   &none
+                &none        &kp C_BRI_DN  &kp LA(SPACE) &kp LG(SPACE) &none &kp C_VOL_DN  &none  &none  &none      &kp PG_DN  &kp PG_UP  &kp DOT    &none   &none
                 &bootloader  &none         &none       &none     &none       &none                       &kp SPACE  &kp BSPC   &kp ENTER  &none      &none   &none
             >;
             sensor-bindings = <&encoder_none &encoder_none>;
