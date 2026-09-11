@@ -2,14 +2,17 @@ name: Build ZMK firmware
 on:
   workflow_dispatch:
   push:
+    # `branches` is required: with only `tags-ignore` GitHub never runs the
+    # workflow for branch pushes at all. Tags are left undefined so tag
+    # pushes (handled by release_with_tag.yml) don't also build here.
+    branches:
+      - "**"
     paths:
       - "boards/**"
       - "config/**"
       - "draw/**"
       - "tests/**"
       - ".github/workflows/build.yml"
-    tags-ignore:
-      - "*"
 
 jobs:
   policy-test:
