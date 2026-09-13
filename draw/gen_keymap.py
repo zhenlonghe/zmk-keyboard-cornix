@@ -98,7 +98,7 @@ LAYER_NOTES = {  # by display-name
     "Number": ("BOOT = 进入 bootloader 刷固件", "#c0392b"),
     "Symbol": ("BT 0/1/2 = 切换蓝牙配置；BOOT = bootloader", "#3399FF"),
     "Navigation": ("右手数字小键盘 (kp)；⌃⌘Q = 锁屏", "#a20025"),
-    "Function": ("BT CLR = 清除所有蓝牙配对", "#60a917"),
+    "Function": ("BT CLR = 清除所有蓝牙配对；CLR 0/1/2 = 只清除对应 profile", "#60a917"),
 }
 
 
@@ -188,6 +188,9 @@ def binding_to_key(tok, defines, layers):
         if args[0] == "BT_SEL":
             return Key(f"BT {args[1]}", "", "bt")
         return Key(args[0].replace("BT_", "BT ").replace("_ALL", ""), "", "bt")
+    m = re.fullmatch(r"bt_clr(\d)", b)
+    if m:
+        return Key(f"CLR {m.group(1)}", "BT", "bt")
     if b == "kp":
         main, sub = keycode_label(args[0])
         if args[0] in MOD_SYM:

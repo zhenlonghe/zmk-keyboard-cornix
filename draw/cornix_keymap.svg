@@ -910,13 +910,19 @@
 <text x="690.0" y="1685.6" font-size="10" fill="#AFB9C7" text-anchor="middle" font-weight="bold">Vol−</text>
 </g>
 <g>
-<rect x="130.0" y="1702.0" width="40" height="40" rx="5" fill="#383E47" stroke="#1e2228"/>
+<rect x="130.0" y="1702.0" width="40" height="40" rx="5" fill="#5C8CCA" stroke="#2f5f9e"/>
+<text x="150.0" y="1722.0" font-size="8" fill="#ffffff" text-anchor="middle" font-weight="bold">CLR 0</text>
+<text x="150.0" y="1735.0" font-size="7" fill="#ffffff" text-anchor="middle" font-weight="normal">BT</text>
 </g>
 <g>
-<rect x="170.0" y="1702.0" width="40" height="40" rx="5" fill="#383E47" stroke="#1e2228"/>
+<rect x="170.0" y="1702.0" width="40" height="40" rx="5" fill="#5C8CCA" stroke="#2f5f9e"/>
+<text x="190.0" y="1722.0" font-size="8" fill="#ffffff" text-anchor="middle" font-weight="bold">CLR 1</text>
+<text x="190.0" y="1735.0" font-size="7" fill="#ffffff" text-anchor="middle" font-weight="normal">BT</text>
 </g>
 <g>
-<rect x="210.0" y="1692.0" width="40" height="40" rx="5" fill="#383E47" stroke="#1e2228"/>
+<rect x="210.0" y="1692.0" width="40" height="40" rx="5" fill="#5C8CCA" stroke="#2f5f9e"/>
+<text x="230.0" y="1712.0" font-size="8" fill="#ffffff" text-anchor="middle" font-weight="bold">CLR 2</text>
+<text x="230.0" y="1725.0" font-size="7" fill="#ffffff" text-anchor="middle" font-weight="normal">BT</text>
 </g>
 <g>
 <rect x="270.0" y="1705.2" width="40" height="40" rx="5" fill="#383E47" stroke="#1e2228"/>
@@ -951,7 +957,7 @@
 <text x="690.0" y="1722.0" font-size="14" fill="#AFB9C7" text-anchor="middle" font-weight="bold">⏭</text>
 <text x="690.0" y="1735.0" font-size="7" fill="#AFB9C7" text-anchor="middle" font-weight="normal">next</text>
 </g>
-<text x="122" y="1814" font-size="10" fill="#60a917"><tspan font-weight="bold">Function 层:</tspan> BT CLR = 清除所有蓝牙配对</text>
+<text x="122" y="1814" font-size="10" fill="#60a917"><tspan font-weight="bold">Function 层:</tspan> BT CLR = 清除所有蓝牙配对；CLR 0/1/2 = 只清除对应 profile</text>
 <polyline points="290.0,265.2 290.0,285.2 100.0,285.2 100.0,1160.0 315.0,1160.0" fill="none" stroke="#a20025" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arra20025)"/>
 <polyline points="334.5,268.5 334.5,288.5 80.0,288.5 80.0,420.0 315.0,420.0" fill="none" stroke="#1ba1e2" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arr1ba1e2)"/>
 <polyline points="505.6,268.4 505.6,288.4 750.0,288.4 750.0,790.0 525.0,790.0" fill="none" stroke="#d80073" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#arrd80073)"/>

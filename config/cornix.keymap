@@ -61,6 +61,34 @@
         };
     };
 
+    macros {
+        // 清除单个蓝牙 profile 的配对信息：先 BT_SEL n 再 BT_CLR。
+        // wait-ms 留出 profile 切换落地的时间，清除后停留在该 profile（可重新配对）。
+        bt_clr0: bt_clr0 {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            wait-ms = <50>;
+            tap-ms = <20>;
+            bindings = <&bt BT_SEL 0>, <&bt BT_CLR>;
+        };
+
+        bt_clr1: bt_clr1 {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            wait-ms = <50>;
+            tap-ms = <20>;
+            bindings = <&bt BT_SEL 1>, <&bt BT_CLR>;
+        };
+
+        bt_clr2: bt_clr2 {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            wait-ms = <50>;
+            tap-ms = <20>;
+            bindings = <&bt BT_SEL 2>, <&bt BT_CLR>;
+        };
+    };
+
     combos {
         compatible = "zmk,combos";
 
@@ -135,7 +163,7 @@
                 &bt BT_CLR_ALL  &none  &none  &none  &none  &none                &none  &none  &none     &kp UP     &none      &none
                 &none           &none  &none  &none  &none  &none                &none  &none  &kp LEFT  &kp DOWN   &kp RIGHT  &kp C_VOL_UP
                 &none           &none  &none  &none  &none  &none  &none  &none  &none  &none  &none     &kp PG_DN  &kp PG_UP  &kp C_VOL_DN
-                &none           &none  &none  &none  &none  &none                &none  &none  &none     &kp C_PREV  &kp C_PP  &kp C_NEXT
+                &bt_clr0        &bt_clr1  &bt_clr2  &none  &none  &none          &none  &none  &none     &kp C_PREV  &kp C_PP  &kp C_NEXT
             >;
             sensor-bindings = <&encoder_none &encoder_none>;
         };
