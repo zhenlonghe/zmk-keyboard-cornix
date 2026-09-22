@@ -24,6 +24,42 @@ Cornix 分体式人体工学键盘的社区 ZMK 固件，提供完整的分体�
 
 由 `python3 draw/gen_keymap.py` 从 `config/cornix.keymap` 生成，同时输出可在 draw.io 中编辑的 `draw/cornix_keymap.drawio.xml`。修改键位后请重新运行；提交的图过期时 CI 会失败。
 
+### Herdr / Agent 控制键（Codex Micro 风格）
+
+FN 层左手是一组 [Herdr](https://herdr.dev) 控制键，按一下就跳到某个 coding agent，效果类似 Codex Micro 的 Agent 键。固件只发 `⌃⌥` 组合键，动作全部由 Herdr 的 keybinding 完成，因此不增加固件代码、灯光通信和功耗。
+
+| FN + 键（左手） | 发送 | Herdr 动作 |
+|---|---|---|
+| ⇪、A、S、D、F、G | `⌃⌥1` … `⌃⌥6` | `focus_agent` → Agent 1–6 |
+| Shift | `⌃⌥A` | 插件 `focus-attention.next`：跳到最需要你的 Agent（blocked > done > idle） |
+| Z / X | `⌃⌥P` / `⌃⌥N` | `previous_agent` / `next_agent` |
+| C | `⌃⌥O` | `open_notification_target` |
+| V | `⌃⌥L` | `last_pane` |
+| B | `⌃⌥Z` | `zoom` |
+| 左旋钮 | `⌃⌥J` / `⌃⌥K` | `next_workspace` / `previous_workspace`，对应 Codex Micro 的 dial |
+
+主机侧在 `~/.config/herdr/config.toml` 中配置（先 `herdr plugin install kuwa72/herdr-focus-attention` 装插件，改完 `herdr config check` 校验、`herdr server reload-config` 热加载）：
+
+```toml
+[keys]
+focus_agent = "ctrl+alt+1..9"
+previous_agent = "ctrl+alt+p"
+next_agent = "ctrl+alt+n"
+open_notification_target = "ctrl+alt+o"
+last_pane = "ctrl+alt+l"
+zoom = "ctrl+alt+z"
+next_workspace = "ctrl+alt+j"
+previous_workspace = "ctrl+alt+k"
+
+[[keys.command]]
+key = "ctrl+alt+a"
+type = "plugin_action"
+command = "kuwa72.focus-attention.next"
+description = "Focus next agent needing attention"
+```
+
+`⌃⌥` 前缀整体留给 Herdr，其他层不要再用。
+
 ## 开发板和扩展板介绍
 
 本仓库包含用于 Cornix 分体式键盘的 ZMK 固件配置。以下是该项目中可用的不同开发板和扩展板的说明：

@@ -24,6 +24,42 @@ Community ZMK firmware for the Cornix split ergonomic keyboard, with full split-
 
 Generated from `config/cornix.keymap` by `python3 draw/gen_keymap.py`, which also writes an editable `draw/cornix_keymap.drawio.xml`. Re-run it after changing the keymap; CI fails if the committed diagram is stale.
 
+### Herdr / agent control keys (Codex Micro style)
+
+The FN layer's left hand is a control cluster for [Herdr](https://herdr.dev), so one keystroke jumps to a coding agent the way the Codex Micro's agent keys do. The firmware only sends `⌃⌥` chords; Herdr's keybindings do the rest, so there is no extra firmware code, LED traffic or power cost.
+
+| FN + key (left hand) | Sends | Herdr action |
+|---|---|---|
+| Caps, A, S, D, F, G | `⌃⌥1` … `⌃⌥6` | `focus_agent` → agent 1–6 |
+| Shift | `⌃⌥A` | plugin `focus-attention.next` — jump to the agent that needs you most (blocked > done > idle) |
+| Z / X | `⌃⌥P` / `⌃⌥N` | `previous_agent` / `next_agent` |
+| C | `⌃⌥O` | `open_notification_target` |
+| V | `⌃⌥L` | `last_pane` |
+| B | `⌃⌥Z` | `zoom` |
+| left encoder | `⌃⌥J` / `⌃⌥K` | `next_workspace` / `previous_workspace`, like the Codex Micro dial |
+
+Host side, in `~/.config/herdr/config.toml` (install the plugin first with `herdr plugin install kuwa72/herdr-focus-attention`, then `herdr config check` and `herdr server reload-config`):
+
+```toml
+[keys]
+focus_agent = "ctrl+alt+1..9"
+previous_agent = "ctrl+alt+p"
+next_agent = "ctrl+alt+n"
+open_notification_target = "ctrl+alt+o"
+last_pane = "ctrl+alt+l"
+zoom = "ctrl+alt+z"
+next_workspace = "ctrl+alt+j"
+previous_workspace = "ctrl+alt+k"
+
+[[keys.command]]
+key = "ctrl+alt+a"
+type = "plugin_action"
+command = "kuwa72.focus-attention.next"
+description = "Focus next agent needing attention"
+```
+
+The `⌃⌥` prefix is reserved for Herdr; keep it out of the other layers.
+
 ## Introduction to Boards and Shields
 
 This repository contains the ZMK firmware configuration for the Cornix split keyboard. Below is an explanation of the different boards and shields available in this project:

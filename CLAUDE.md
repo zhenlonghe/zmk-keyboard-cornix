@@ -82,7 +82,7 @@ Hardware facts that constrain edits:
 
 ### Config (`config/`)
 
-- `cornix.keymap` — 50-key layout, 5 layers (Base/Number/Symbol/Nav/FN), home-row mods (`hml`/`hmr`, balanced flavor, cross-hand `hold-trigger-key-positions`), and the copy/paste combos. `cornix42.keymap` is the 42-key variant.
+- `cornix.keymap` — 50-key layout, 5 layers (Base/Number/Symbol/Nav/FN), home-row mods (`hml`/`hmr`, balanced flavor, cross-hand `hold-trigger-key-positions`), and the copy/paste combos. The FN layer's left hand is a Herdr control cluster (`HD(k)` = `⌃⌥k`: agents 1–6, focus-attention, prev/next, zoom; left encoder switches workspaces) — the `⌃⌥` prefix is reserved for Herdr, see README "Herdr / agent control keys". `cornix42.keymap` is the 42-key variant.
 - **The cross-half soft-off combo is *not* in the keymap** — the `csoff` behavior and `soft_off_combo` (key positions 41+46, `split-peripheral-off-on-press`) live in `boards/jzf/cornix/cornix.dtsi`, and the matching System-OFF wake wiring (`zmk,gpio-key-wakeup-trigger`, driving col 4) lives in each half's `.dts`. The comments there explain why the wake column must not be a combo key's column — read them before touching soft off.
 - `config/includes/cornix50.h` documents position names (LT0/RM3/…) for the 50-key mapping but **is not `#include`d by any keymap** — it is reference material, not live code.
 - `west.yml` — pins ZMK, `zmk-helpers`, and `zmk-dongle-display` by SHA. Bump deliberately (see CI note above).

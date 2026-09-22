@@ -18,6 +18,10 @@
 #define LEFT_KEYS  0 1 2 3 4 5 12 13 14 15 16 17 24 25 26 27 28 29 30 38 39 40 41 42 43
 #define RIGHT_KEYS 6 7 8 9 10 11 18 19 20 21 22 23 31 32 33 34 35 36 37 44 45 46 47 48 49
 #define HYPER LS(LA(LG(LCTRL)))
+/* Herdr 键簇（FN 层左手）：所有键都发 ⌃⌥+键，由 Herdr 的 keybinding 接住
+ * （focus_agent = "ctrl+alt+1..9" 等，见 README「Herdr / Agent 控制键」）。
+ * ⌃⌥ 前缀整体留给 Herdr，其他层不要再用。 */
+#define HD(k) LC(LA(k))
 
 / {
     behaviors {
@@ -160,12 +164,13 @@
         function_layer {
             display-name = "Function";
             bindings = <
-                &bt BT_CLR_ALL  &none  &none  &none  &none  &none                &none  &none  &none     &kp UP     &none      &none
-                &none           &none  &none  &none  &none  &none                &none  &none  &kp LEFT  &kp DOWN   &kp RIGHT  &kp C_VOL_UP
-                &none           &none  &none  &none  &none  &none  &none  &none  &none  &none  &none     &kp PG_DN  &kp PG_UP  &kp C_VOL_DN
-                &bt_clr0        &bt_clr1  &bt_clr2  &none  &none  &none          &none  &none  &none     &kp C_PREV  &kp C_PP  &kp C_NEXT
+                &bt BT_CLR_ALL  &none       &none       &none       &none       &none                            &none  &none  &none     &kp UP     &none      &none
+                &kp HD(N1)      &kp HD(N2)  &kp HD(N3)  &kp HD(N4)  &kp HD(N5)  &kp HD(N6)                       &none  &none  &kp LEFT  &kp DOWN   &kp RIGHT  &kp C_VOL_UP
+                &kp HD(A)       &kp HD(P)   &kp HD(N)   &kp HD(O)   &kp HD(L)   &kp HD(Z)   &none  &none  &none  &none  &none     &kp PG_DN  &kp PG_UP  &kp C_VOL_DN
+                &bt_clr0        &bt_clr1    &bt_clr2    &none       &none       &none                            &none  &none  &none     &kp C_PREV  &kp C_PP  &kp C_NEXT
             >;
-            sensor-bindings = <&encoder_none &encoder_none>;
+            /* 左旋钮在 FN 层切换 Herdr workspace（顺时针 ⌃⌥J = next_workspace，逆时针 ⌃⌥K = previous_workspace）。 */
+            sensor-bindings = <&inc_dec_kp HD(J) HD(K) &encoder_none>;
         };
     };
 };

@@ -91,14 +91,16 @@ NOTES = [
     dict(lines=["Soft-off 41 + 46 同按", "两半区一起关机；按 42 (Tab) 唤醒"],
          x=X0 + 190, y=Y0 + 275, w=220, h=36, color="#e74c3c", align="center",
          arrows=[(41, (0.2, 0), (0.5, 1)), (46, (0.8, 0), (0.5, 1))]),
-    dict(lines=["Encoders 左: 音量  右: 亮度"],
-         x=X0 + 210, y=Y0 - 80, w=160, h=20, color="#3399FF", align="center", arrows=[]),
+    dict(lines=["Encoders 左: 音量  右: 亮度", "FN 层左旋钮: 切换 Herdr workspace"],
+         x=X0 + 200, y=Y0 - 78, w=180, h=32, color="#3399FF", align="center", arrows=[]),
 ]
 LAYER_NOTES = {  # by display-name
     "Number": ("BOOT = 进入 bootloader 刷固件", "#c0392b"),
     "Symbol": ("BT 0/1/2 = 切换蓝牙配置；BOOT = bootloader", "#3399FF"),
     "Navigation": ("右手数字小键盘 (kp)；⌃⌘Q = 锁屏", "#a20025"),
-    "Function": ("BT CLR = 清除所有蓝牙配对；CLR 0/1/2 = 只清除对应 profile", "#60a917"),
+    "Function": ("BT CLR = 清除所有蓝牙配对；CLR 0/1/2 = 只清除对应 profile\n"
+                 "Herdr 键簇 (⌃⌥ 由 Herdr 接住)：1–6 = Agent 1–6；A = 跳到需关注的 Agent；P/N = 上/下一个 Agent\n"
+                 "O = 通知目标；L = 上一个 pane；Z = zoom；左旋钮 = 上/下一个 workspace", "#60a917"),
 }
 
 
@@ -134,6 +136,9 @@ def parse_keymap(path):
     text = re.sub(r"//[^\n]*", "", text)
     text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
     defines = {m.group(1): m.group(2) for m in re.finditer(r"#define\s+(\w+)\s+([^\n]+)", text)}
+    # Function-like macros such as `#define HD(k) LC(LA(k))`, expanded by keycode_label().
+    FN_MACROS.update({m.group(1): (m.group(2), m.group(3).strip())
+                      for m in re.finditer(r"#define\s+(\w+)\((\w+)\)\s+([^\n]+)", text)})
     layers = []
     for m in re.finditer(r'display-name\s*=\s*"([^"]+)"\s*;\s*bindings\s*=\s*<([^>]*)>', text):
         layers.append((m.group(1), tokenize_bindings(m.group(2))))
@@ -154,8 +159,23 @@ def layer_index(name, defines, layers):
     return None
 
 
+FN_MACROS = {}  # name -> (param, body), filled by parse_keymap()
+
+
+def expand_macros(code):
+    """'HD(N1)' -> 'LC(LA(N1))' using the keymap's function-like #defines."""
+    for _ in range(8):
+        m = re.fullmatch(r"(\w+)\((.*)\)", code)
+        if not m or m.group(1) not in FN_MACROS:
+            return code
+        param, body = FN_MACROS[m.group(1)]
+        code = re.sub(rf"\b{param}\b", m.group(2), body)
+    return code
+
+
 def keycode_label(code):
     """'LC(LG(Q))' -> '⌃⌘Q'; 'BSPC' -> '⌫'. Returns (main, sub)."""
+    code = expand_macros(code)
     mods = ""
     while True:
         m = re.fullmatch(r"(\w\w)\((.*)\)", code)
@@ -325,9 +345,10 @@ def write_drawio(path):
             key_ids[(li, pos)] = cell(value, st, x, y, KEY, KEY)
         if lname in LAYER_NOTES:
             txt, color = LAYER_NOTES[lname]
-            cell(f"<b>{html.escape(lname)} 层:</b> {html.escape(txt)}",
-                 f"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Verdana;fontSize=11;fontColor={color};",
-                 X0 - 10, oy + 240, 320, 20)
+            lines = txt.split("\n")  # "\n" in a note starts a new line
+            cell(f"<b>{html.escape(lname)} 层:</b> " + "<br>".join(html.escape(l) for l in lines),
+                 f"text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;fontFamily=Verdana;fontSize=11;fontColor={color};",
+                 X0 - 10, oy + 240, 560, 16 * len(lines) + 4)
 
     for li, pos, dst, color, sx, left in layer_edges():
         _, y, _ = key_xy(li, pos)
@@ -402,7 +423,9 @@ def write_svg(path):
             o.append("</g>")
         if lname in LAYER_NOTES:
             txt, color = LAYER_NOTES[lname]
-            o.append(f'<text x="{X0 - 8}" y="{oy + 254}" font-size="10" fill="{color}"><tspan font-weight="bold">{e(lname)} 层:</tspan> {e(txt)}</text>')
+            first, *rest = txt.split("\n")
+            extra = "".join(f'<tspan x="{X0 - 8}" dy="13">{e(l)}</tspan>' for l in rest)
+            o.append(f'<text x="{X0 - 8}" y="{oy + 254}" font-size="10" fill="{color}"><tspan font-weight="bold">{e(lname)} 层:</tspan> {e(first)}{extra}</text>')
 
     for li, pos, dst, color, sx, left in layer_edges():
         x, y, _ = key_xy(li, pos)
