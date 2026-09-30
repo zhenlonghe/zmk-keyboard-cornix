@@ -61,7 +61,18 @@ CONFIG_BT_CTLR_PHY_2M=n
 # ~45 ms keeps RC drift well inside the anchor window for ~130 uA. If
 # stutter ever returns, drop back to 0 to re-run the diagnosis before
 # blaming the host link / RF environment.
-CONFIG_ZMK_SPLIT_BLE_PREF_LATENCY=5
+#
+# Interval raised from the 7.5 ms default to 11.25 ms (9 x 1.25 ms): as BLE
+# central the left half cannot skip split connection events, so at 7.5 ms it
+# ran ~133 +8 dBm events/s — the bulk of its awake-idle current. 11.25 ms cuts
+# that by a third for +1.9 ms average / +3.75 ms worst-case latency on
+# right-half keys only. Latency drops 5 -> 3 so the peripheral's forced sync
+# stays at (3+1) x 11.25 = 45 ms, i.e. the RC-drift budget found above and the
+# right half's idle current are unchanged. When ZMK goes idle the indicator
+# shield (cornix_split_params.c) stretches the link further; these are the
+# typing-mode values it restores.
+CONFIG_ZMK_SPLIT_BLE_PREF_INT=9
+CONFIG_ZMK_SPLIT_BLE_PREF_LATENCY=3
 CONFIG_BT_PERIPHERAL_PREF_LATENCY=10
 # 更改键盘默认显示名称
 

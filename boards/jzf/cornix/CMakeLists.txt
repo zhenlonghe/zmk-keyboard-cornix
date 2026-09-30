@@ -9,5 +9,9 @@ zephyr_library_sources_ifdef(
   ../../shields/cornix_indicator/cornix_indicator.c
   ../../shields/cornix_indicator/cornix_recovery.c
 )
+# Split link params are driven by the central; peripherals have nothing to do.
+if(CONFIG_SHIELD_CORNIX_INDICATOR AND CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+  zephyr_library_sources(../../shields/cornix_indicator/cornix_split_params.c)
+endif()
 zephyr_library_include_directories(${ZEPHYR_BASE}/drivers)
 zephyr_library_include_directories(${APPLICATION_SOURCE_DIR}/include)

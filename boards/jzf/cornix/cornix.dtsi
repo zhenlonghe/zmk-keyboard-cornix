@@ -70,6 +70,16 @@
     regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
 };
 
+// The EC11 driver arms both-edge interrupts on the encoder A/B pins
+// (P1.04/P1.06). Without this mask the nrfx GPIO driver backs each with a
+// GPIOTE IN channel, which draws a constant extra current (tens of uA per the
+// nRF52840 PS) the whole time the chip is awake. Route them through the
+// low-power PORT/SENSE mechanism instead, like the kscan level interrupts.
+// Not in cornix_sensors.dtsi: the dongle boards include that file too.
+&gpio1 {
+    sense-edge-mask = <((1 << 4) | (1 << 6))>;
+};
+
 &spi3 {
     status = "disabled";
     compatible = "nordic,nrf-spim";
