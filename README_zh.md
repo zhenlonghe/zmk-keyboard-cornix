@@ -22,7 +22,7 @@ Cornix 分体式人体工学键盘的社区 ZMK 固件，提供完整的分体�
 
 ![Cornix 键位图](draw/cornix_keymap.svg)
 
-由 `python3 draw/gen_keymap.py` 从 `config/cornix.keymap` 生成，同时输出可在 draw.io 中编辑的 `draw/cornix_keymap.drawio.xml`。修改键位后请重新运行；提交的图过期时 CI 会失败。
+由 `python3 draw/gen_keymap.py` 从 `config/cornix.keymap` 生成，同时输出可在 draw.io 中编辑的 `draw/cornix_keymap.drawio.xml`，并重排键位文件里的框线键位注释表。修改键位后请重新运行；提交的图或注释表过期时 CI 会失败。
 
 ### Herdr / Agent 控制键（Codex Micro 风格）
 

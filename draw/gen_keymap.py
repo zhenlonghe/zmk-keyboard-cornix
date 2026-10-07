@@ -11,12 +11,16 @@ Only the Python standard library is used. Re-run after every keymap change:
 
     python3 draw/gen_keymap.py
 
+It also rewrites the box-drawn key tables (//╭──┬──╮) in each layer of the
+keymap, so after a keymap change: edit the binding lines, run this, commit.
+
 CI (keymap-draw job in build.yml) fails if the committed outputs are stale.
 """
 import html
 import math
 import re
 import sys
+import unicodedata
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -255,6 +259,118 @@ if combos:
     NOTES.append(dict(lines=combo_lines, x=X0 + 90, y=Y0 - 70, w=140, h=32, color="#6906F9", align="left", arrows=[]))
 
 
+# ------------------------------------------------------ keymap comment grid --
+# Rewrites each layer's `bindings = < ... >` in the keymap as a box-drawn
+# table: a `//│ label │` row above every binding row, cells sized per column
+# across all layers so the grids line up. Labels are generated from the
+# bindings; COMMENT_LABEL overrides a whole binding, COMMENT_KEY a keycode
+# (plain-text stand-ins for glyphs that render double-width in terminals).
+COMMENT_LABEL = {
+    "kp LC(LG(Q))": "Lock",
+    "kp HD(N1)": "Agent 1", "kp HD(N2)": "Agent 2", "kp HD(N3)": "Agent 3",
+    "kp HD(N4)": "Agent 4", "kp HD(N5)": "Agent 5", "kp HD(N6)": "Agent 6",
+    "kp HD(A)": "Attention", "kp HD(P)": "Prev Ag", "kp HD(N)": "Next Ag",
+    "kp HD(O)": "Notify", "kp HD(L)": "Last Pane", "kp HD(Z)": "Zoom",
+    "bt BT_CLR_ALL": "BT Clr All",
+}
+COMMENT_KEY = {
+    "C_PP": "Play", "C_NEXT": "Next", "C_PREV": "Prev", "ENTER": "⏎", "KP_ENTER": "⏎",
+    "C_VOL_DN": "Vol-", "C_BRI_DN": "Bri-", "KP_MINUS": "-",
+}
+COMMENT_HOLD = {**MOD_SYM, "HYPER": "Hyper"}
+# Bindings per row of the 50-key layout; row 2 carries the two encoder presses
+# (indices 6, 7) between the halves.
+COMMENT_ROWS = [12, 12, 14, 12]
+COMMENT_INDENT = " " * 16
+
+
+def comment_key(code):
+    return COMMENT_KEY.get(code) or keycode_label(code)[0]
+
+
+def comment_label(tok):
+    b, args = tok[0], tok[1:]
+    if " ".join(tok) in COMMENT_LABEL:
+        return COMMENT_LABEL[" ".join(tok)]
+    if b == "none":
+        return ""
+    if b == "kp":
+        return comment_key(args[0])
+    if b in ("hml", "hmr", "mt", "hm"):
+        return f"{comment_key(args[1])}/{COMMENT_HOLD.get(args[0], args[0])}"
+    if b in ("vlt", "lt"):
+        return f"{comment_key(args[1])}/{args[0].title()}"
+    if b == "bootloader":
+        return "Boot"
+    if b == "bt" and args[0] == "BT_SEL":
+        return f"BT {args[1]}"
+    m = re.fullmatch(r"bt_clr(\d)", b)
+    if m:
+        return f"Clr BT {m.group(1)}"
+    return binding_to_key(tok, defines, layers).main
+
+
+def text_width(s):
+    return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
+
+
+def center(s, w):
+    pad = w - text_width(s)
+    left = pad // 2 + (pad & w & 1)  # same split as str.center()
+    return " " * left + s + " " * (pad - left)
+
+
+def write_keymap_comments(path):
+    if len(positions) != sum(COMMENT_ROWS):
+        return False
+    grids = []  # per layer: 4 rows x 14 columns of (binding, label) or None
+    for _, toks in layers:
+        rows, i = [], 0
+        for n in COMMENT_ROWS:
+            row = [("&" + " ".join(t), comment_label(t)) for t in toks[i:i + n]]
+            i += n
+            rows.append(row if n == 14 else row[:6] + [None, None] + row[6:])
+        grids.append(rows)
+    width = [max(max(text_width(c[0]), text_width(c[1]) + 2) for g in grids for r in g if (c := r[col]))
+             for col in range(14)]
+    segs = [range(0, 6), range(6, 8), range(8, 14)]
+
+    def present(s, r):
+        return 0 <= r < len(COMMENT_ROWS) and (s != 1 or COMMENT_ROWS[r] == 14)
+
+    def blank(seg):
+        return " " * (sum(width[c] for c in seg) + len(seg) + 1)
+
+    def border(r):  # line between row r-1 and row r
+        out = []
+        for s, seg in enumerate(segs):
+            above, below = present(s, r - 1), present(s, r)
+            if not (above or below):
+                out.append(blank(seg))
+                continue
+            l, m, rr = ("├┼┤" if above and below else "╭┬╮" if below else "╰┴╯")
+            out.append(l + m.join("─" * width[c] for c in seg) + rr)
+        return "  ".join(out).rstrip()
+
+    def cells(r, row, idx, edge):
+        return "  ".join(edge + edge.join(center(row[c][idx], width[c]) for c in seg) + edge
+                         if present(s, r) else blank(seg) for s, seg in enumerate(segs)).rstrip()
+
+    text = path.read_text(encoding="utf-8")
+    for (lname, _), grid in zip(layers, grids):
+        lines = []
+        for r, row in enumerate(grid):
+            lines += [COMMENT_INDENT + "//" + border(r),
+                      COMMENT_INDENT + "//" + cells(r, row, 1, "│"),
+                      COMMENT_INDENT + "  " + cells(r, row, 0, " ")]
+        lines.append(COMMENT_INDENT + "//" + border(len(grid)))
+        pat = re.compile(r'(display-name\s*=\s*"%s"\s*;\s*bindings\s*=\s*<\n).*?(\n\s*>;)' % re.escape(lname), re.S)
+        text, n = pat.subn(lambda m: m.group(1) + "\n".join(lines) + m.group(2), text, count=1)
+        assert n == 1, f"layer {lname}: bindings block not found"
+    path.write_text(text, encoding="utf-8")
+    return True
+
+
 def key_style(k, li):
     if k.kind == "layer" and k.layer is not None:
         return LAYER_COLORS[k.layer % len(LAYER_COLORS)]
@@ -446,3 +562,5 @@ def write_svg(path):
 write_drawio(OUT_DRAWIO)
 write_svg(OUT_SVG)
 print(f"wrote {OUT_DRAWIO.relative_to(ROOT)} and {OUT_SVG.relative_to(ROOT)} ({len(layers)} layers, {len(positions)} keys)")
+if write_keymap_comments(KEYMAP):
+    print(f"rewrote key tables in {KEYMAP.relative_to(ROOT)}")

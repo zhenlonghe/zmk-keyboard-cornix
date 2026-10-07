@@ -28,7 +28,7 @@ Clones/caches ZMK under `.build/zmk-docker/`, builds `cornix_left` + `cornix_rig
 python3 draw/gen_keymap.py
 ```
 
-Parses `config/cornix.keymap` + `cornix-layouts.dtsi` and rewrites `draw/cornix_keymap.svg` (embedded in both READMEs) and `draw/cornix_keymap.drawio.xml`. **Run it after every keymap change and commit the outputs** — the `keymap-draw` CI job diffs them. Free-form annotations (home-row mods, soft-off, encoders) live in the `NOTES` / `LAYER_NOTES` tables at the top of the script; keycode labels in `KEY_LABEL`.
+Parses `config/cornix.keymap` + `cornix-layouts.dtsi` and rewrites `draw/cornix_keymap.svg` (embedded in both READMEs), `draw/cornix_keymap.drawio.xml`, **and the box-drawn `//╭───┬───╮` key tables inside each layer's `bindings` in `config/cornix.keymap`** (columns sized across all layers, labels generated from the bindings). **Standard flow for any keymap change: edit the binding lines only, run the script, commit keymap + `draw/` together** — the `keymap-draw` CI job diffs both. Don't hand-align the tables; label tweaks go in `COMMENT_LABEL` (whole binding, e.g. Herdr keys) / `COMMENT_KEY` (keycode) in the script. Free-form SVG annotations (home-row mods, soft-off, encoders) live in the `NOTES` / `LAYER_NOTES` tables at the top of the script; SVG keycode labels in `KEY_LABEL`.
 
 ### Tests
 

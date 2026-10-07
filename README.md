@@ -22,7 +22,7 @@ Community ZMK firmware for the Cornix split ergonomic keyboard, with full split-
 
 ![Cornix keymap](draw/cornix_keymap.svg)
 
-Generated from `config/cornix.keymap` by `python3 draw/gen_keymap.py`, which also writes an editable `draw/cornix_keymap.drawio.xml`. Re-run it after changing the keymap; CI fails if the committed diagram is stale.
+Generated from `config/cornix.keymap` by `python3 draw/gen_keymap.py`, which also writes an editable `draw/cornix_keymap.drawio.xml` and re-aligns the box-drawn key tables in the keymap's comments. Re-run it after changing the keymap; CI fails if the committed diagram or tables are stale.
 
 ### Herdr / agent control keys (Codex Micro style)
 
