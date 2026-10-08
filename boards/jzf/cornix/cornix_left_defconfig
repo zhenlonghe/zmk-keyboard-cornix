@@ -68,9 +68,8 @@ CONFIG_BT_CTLR_PHY_2M=n
 # that by a third for +1.9 ms average / +3.75 ms worst-case latency on
 # right-half keys only. Latency drops 5 -> 3 so the peripheral's forced sync
 # stays at (3+1) x 11.25 = 45 ms, i.e. the RC-drift budget found above and the
-# right half's idle current are unchanged. When ZMK goes idle the indicator
-# shield (cornix_split_params.c) stretches the link further; these are the
-# typing-mode values it restores.
+# right half's idle current are unchanged. These are static: changing them at
+# runtime (cornix_split_params.c, now unbuilt) caused split disconnects.
 CONFIG_ZMK_SPLIT_BLE_PREF_INT=9
 CONFIG_ZMK_SPLIT_BLE_PREF_LATENCY=3
 CONFIG_BT_PERIPHERAL_PREF_LATENCY=10
