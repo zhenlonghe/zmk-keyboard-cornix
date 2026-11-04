@@ -92,7 +92,7 @@ NOTES = [
          x=X0 - 10, y=Y0 + 235, w=190, h=50, color="#FF8000", align="left", arrows=[(13, (0.3, 0), (0, 1))]),
     dict(lines=["✦ Hyper = ⇧⌥⌃⌘", "左右空格长按"],
          x=X0 + 470, y=Y0 + 235, w=150, h=36, color="#CC99FF", align="right", arrows=[(44, (0.8, 0), (0.5, 1))]),
-    dict(lines=["Soft-off 41 + 46 同按", "两半区一起关机；按 42 (Tab) 唤醒"],
+    dict(lines=["Soft-off 41 + 46 同按", "两半区一起关机；按各半旋钮唤醒"],
          x=X0 + 190, y=Y0 + 275, w=220, h=36, color="#e74c3c", align="center",
          arrows=[(41, (0.2, 0), (0.5, 1)), (46, (0.8, 0), (0.5, 1))]),
     dict(lines=["Encoders 左: 音量  右: 亮度", "FN 层左旋钮: 切换 Herdr workspace"],

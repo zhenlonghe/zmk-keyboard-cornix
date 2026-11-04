@@ -54,7 +54,7 @@
         status = "disabled";
 
         soft_off_wake_key: soft_off_wake_key {
-            gpios = <&gpio0 2 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+            gpios = <&gpio0 29 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;  // Row 2
         };
     };
 
@@ -62,11 +62,14 @@
         compatible = "zmk,gpio-key-wakeup-trigger";
         trigger = <&soft_off_wake_key>;
         wakeup-source;
-        // Drive Col 4 so key position 42 (Row 3 x Col 4) wakes from soft off.
+        // Drive Col 6 so the left encoder press (position 30, Row 2 x Col 6)
+        // wakes from soft off. Col 6 carries only the encoder switch, so no
+        // other key can wake the half, and the stiff encoder press is hard to
+        // trigger by accident (e.g. in a bag).
         // Must not be a column of the off-combo keys (41/46): holding a combo
         // key with its column driven would satisfy the SENSE condition and
         // wake the chip the moment it enters System OFF.
-        extra-gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
+        extra-gpios = <&gpio0 10 GPIO_ACTIVE_HIGH>;
     };
 
     soft_off_wakers {
