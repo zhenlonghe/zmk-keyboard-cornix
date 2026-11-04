@@ -12,6 +12,7 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/led_strip.h>
+#include <zephyr/drivers/sensor.h>
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -68,6 +69,10 @@ LOG_MODULE_REGISTER(cornix_indicator, CONFIG_ZMK_LOG_LEVEL);
 #define FADE_STEP 3
 #define BATTERY_LOW 20
 #define BATTERY_FULL 95
+/* ZMK stops its battery timer outside ACTIVE, so a half left on the charger
+ * untouched would keep showing the plug-in level forever. Sample it here at
+ * this period while VBUS is present and ZMK isn't sampling. */
+#define CHARGE_SAMPLE_MS 60000
 #define RECONNECT_RECOVERY_DELAY_MS 30000
 #define RECONNECT_RECENT_ACTIVITY_MS 60000
 
@@ -143,6 +148,49 @@ static struct indicator_state state;
 K_MUTEX_DEFINE(state_mutex);
 K_MUTEX_DEFINE(render_mutex);
 static struct k_work_delayable indicator_work;
+
+#if DT_HAS_CHOSEN(zmk_battery)
+static const struct device *const battery_dev = DEVICE_DT_GET(DT_CHOSEN(zmk_battery));
+static int64_t last_charge_sample = INT64_MIN / 2;
+#endif
+
+/* The encoder A/B pins use GPIO SENSE (sense-edge-mask in cornix.dtsi), and
+ * SENSE stays live in System OFF: turning the knob would wake the half from
+ * soft off / deep sleep, and a detent resting with a contact closed would sink
+ * current through the pull-up. The EC11 driver has no PM hooks, so the
+ * indicator's PM device (suspended by zmk_pm_suspend_devices() on both paths)
+ * disconnects the pins instead. */
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(left_encoder), okay)
+#define ENCODER_NODE DT_NODELABEL(left_encoder)
+#elif DT_NODE_HAS_STATUS(DT_NODELABEL(right_encoder), okay)
+#define ENCODER_NODE DT_NODELABEL(right_encoder)
+#endif
+
+#ifdef ENCODER_NODE
+static const struct gpio_dt_spec encoder_pins[] = {
+    GPIO_DT_SPEC_GET(ENCODER_NODE, a_gpios),
+    GPIO_DT_SPEC_GET(ENCODER_NODE, b_gpios),
+};
+
+static void encoder_pins_suspend(void) {
+    for (size_t i = 0; i < ARRAY_SIZE(encoder_pins); i++) {
+        gpio_pin_interrupt_configure_dt(&encoder_pins[i], GPIO_INT_DISABLE);
+        gpio_pin_configure_dt(&encoder_pins[i], GPIO_DISCONNECTED);
+    }
+}
+
+/* Only reached when zmk_pm_suspend_devices() fails and rolls back; a real wake
+ * from System OFF is a reset and the EC11 driver re-inits the pins itself. */
+static void encoder_pins_resume(void) {
+    for (size_t i = 0; i < ARRAY_SIZE(encoder_pins); i++) {
+        gpio_pin_configure_dt(&encoder_pins[i], GPIO_INPUT);
+        gpio_pin_interrupt_configure_dt(&encoder_pins[i], GPIO_INT_EDGE_BOTH);
+    }
+}
+#else
+static void encoder_pins_suspend(void) {}
+static void encoder_pins_resume(void) {}
+#endif
 
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 static struct cornix_reconnect_policy reconnect_policy;
@@ -490,17 +538,24 @@ static int render(struct color inner, struct color outer) {
         rc = led_strip_update_rgb(led_strip, pixels, ARRAY_SIZE(pixels));
         if (rc < 0) {
             LOG_ERR("Failed to update LEDs: %d", rc);
-            goto out;
+            state.last_valid = false;
+            /* Still fall through to cut the rail when everything should be
+             * off: cutting power is what actually blanks the LEDs. */
+            if (any_on) {
+                goto out;
+            }
+        } else {
+            state.last_inner = inner;
+            state.last_outer = outer;
+            state.last_valid = true;
         }
-        state.last_inner = inner;
-        state.last_outer = outer;
-        state.last_valid = true;
     }
 
     if (!any_on) {
-        rc = gpio_pin_set_dt(&led_power, 0);
-        if (rc < 0) {
-            LOG_ERR("Failed to disable LED power: %d", rc);
+        int off_rc = gpio_pin_set_dt(&led_power, 0);
+        if (off_rc < 0) {
+            LOG_ERR("Failed to disable LED power: %d", off_rc);
+            rc = off_rc;
             goto out;
         }
         state.rail_on = false;
@@ -586,11 +641,29 @@ static void indicator_work_handler(struct k_work *work) {
 
     cornix_recovery_feed();
 
+    bool vbus = nrf_power_usbregstatus_vbusdet_get(NRF_POWER);
+    int sampled_soc = -1;
+#if DT_HAS_CHOSEN(zmk_battery)
+    /* Only outside ACTIVE, where ZMK's own battery timer is stopped, so the
+     * two never fetch the ADC concurrently. */
+    if (vbus && zmk_activity_get_state() != ZMK_ACTIVITY_ACTIVE &&
+        now - last_charge_sample >= CHARGE_SAMPLE_MS && device_is_ready(battery_dev)) {
+        struct sensor_value soc;
+        last_charge_sample = now;
+        if (sensor_sample_fetch_chan(battery_dev, SENSOR_CHAN_GAUGE_STATE_OF_CHARGE) == 0 &&
+            sensor_channel_get(battery_dev, SENSOR_CHAN_GAUGE_STATE_OF_CHARGE, &soc) == 0) {
+            sampled_soc = CLAMP(soc.val1, 0, 100);
+        }
+    }
+#endif
+
     k_mutex_lock(&state_mutex, K_FOREVER);
     state.pending = false;
 
-    set_charging_locked(nrf_power_usbregstatus_vbusdet_get(NRF_POWER), now);
-    if (!state.battery_known) {
+    set_charging_locked(vbus, now);
+    if (sampled_soc >= 0) {
+        set_battery_locked((uint8_t)sampled_soc, now);
+    } else if (!state.battery_known) {
         set_battery_locked(zmk_battery_state_of_charge(), now);
     }
     set_peer_connected_locked(read_peer_connected(), now);
@@ -734,8 +807,10 @@ static int cornix_indicator_pm_action(const struct device *dev, enum pm_device_a
         k_mutex_lock(&state_mutex, K_FOREVER);
         set_sleeping_locked(true);
         k_mutex_unlock(&state_mutex);
+        encoder_pins_suspend();
         return force_led_power_off();
     case PM_DEVICE_ACTION_RESUME:
+        encoder_pins_resume();
         k_mutex_lock(&state_mutex, K_FOREVER);
         set_sleeping_locked(false);
         k_mutex_unlock(&state_mutex);
