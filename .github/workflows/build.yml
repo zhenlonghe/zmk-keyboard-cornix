@@ -12,6 +12,9 @@ on:
       - "config/**"
       - "draw/**"
       - "tests/**"
+      - "build.yaml"
+      - "zephyr/module.yml"
+      - "dts/**"
       - ".github/workflows/build.yml"
 
 jobs:
