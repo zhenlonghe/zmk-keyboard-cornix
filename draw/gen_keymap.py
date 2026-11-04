@@ -212,6 +212,8 @@ def binding_to_key(tok, defines, layers):
         if args[0] == "BT_SEL":
             return Key(f"BT {args[1]}", "", "bt")
         return Key(args[0].replace("BT_", "BT ").replace("_ALL", ""), "", "bt")
+    if b == "hold_bt":
+        return Key(args[0].replace("BT_", "BT ").replace("_ALL_CMD", ""), "hold 1s", "bt")
     m = re.fullmatch(r"bt_clr(\d)", b)
     if m:
         return Key(f"CLR {m.group(1)}", "BT", "bt")
@@ -271,7 +273,7 @@ COMMENT_LABEL = {
     "kp HD(N4)": "Agent 4", "kp HD(N5)": "Agent 5", "kp HD(N6)": "Agent 6",
     "kp HD(A)": "Attention", "kp HD(P)": "Prev Ag", "kp HD(N)": "Next Ag",
     "kp HD(O)": "Notify", "kp HD(L)": "Last Pane", "kp HD(Z)": "Zoom",
-    "bt BT_CLR_ALL": "BT Clr All",
+    "hold_bt BT_CLR_ALL_CMD 0": "Hold Clr All",
 }
 COMMENT_KEY = {
     "C_PP": "Play", "C_NEXT": "Next", "C_PREV": "Prev", "ENTER": "⏎", "KP_ENTER": "⏎",
