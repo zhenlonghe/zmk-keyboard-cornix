@@ -6,7 +6,7 @@ Community ZMK firmware for the Cornix split ergonomic keyboard, with full split-
 
 ## Features
 
-- **Full 50-key layout** (`LAYOUT_50`, with a 42-key variant available) — 5 layers (Base / Number / Symbol / Nav / FN), home-row mods, and layer-taps.
+- **Full 50-key layout** (`LAYOUT_50`) — 5 layers (Base / Number / Symbol / Nav / FN), home-row mods, and layer-taps.
 - **EC11 rotary encoder** support (volume / brightness on the base layer).
 - **No-SoftDevice flash layout** — flash `zmk.uf2` directly, no SoftDevice restore needed (since v2.3).
 - **Multiple dongle options** via the `cornix_dongle_adapter` shield, plus an example display shield.
@@ -15,7 +15,7 @@ Community ZMK firmware for the Cornix split ergonomic keyboard, with full split-
 - **Reliability & recovery** (see below):
   - BLE dual-disconnect recovery fallback — re-initializes a stuck left/right + host link after 30s, gated on key activity at the moment of the drop.
   - Firmware-halt self-recovery — fatal errors cold-reboot instead of halting, backed by a 30s hardware watchdog and crash-loop guard.
-  - Soft-off combo with single-key wake — press a cross-half combo to power down, tap one key to wake.
+  - Soft-off combo with single-key wake — press a cross-half combo to power down, press each half's encoder to wake.
 - **Combos**: copy / paste on the base layer, plus the soft-off combo.
 
 ## Keymap
@@ -93,9 +93,8 @@ so in the project. all board use nosd layout as default
 if you flash firmware into dongle and found it can't work with the original  firmware 
 you have two solutions 
 
-1. （recommend）flash the sd restore uf2 under boooader direcotry（its for nice nano 2 ，but i think it works for most of nrf52840 device） other boards https://github.com/hitsmaxft/Adafruit_nRF52_Bootloader/actions/runs/18398554358
-2. build your firmware  with snippet  'nrf
-52840-nosd', make zmk ignore soft device 
+1. （recommend）flash the sd restore uf2 under the bootloader directory（its for nice nano 2 ，but i think it works for most of nrf52840 device） other boards https://github.com/hitsmaxft/Adafruit_nRF52_Bootloader/actions/runs/18398554358
+2. build your firmware with snippet 'nrf52840-nosd', make zmk ignore soft device
 
 
 ## TODO LIST
@@ -134,23 +133,23 @@ All indications fade in and out smoothly, and every connection animation goes da
 | Charge complete (≥ 95 %, still plugged) | solid green for 3 s, then off |
 | Battery ≤ 20 % (not charging) | coral double-blink burst for 5 s, repeated every 5 min |
 | Right half lost (left half only) | blue breathing, up to 60 s, then dark |
-| Right half (re)connected (left half only) | solid blue for 3 s, then off |
+| Right half (re)connected (left half only) | soft blue double-pulse, then off |
 
-**Outer LED — left half (central), host-facing.** The 3 s connect notice wins over the advertising animation; caps lock shows when neither is active.
+**Outer LED — left half (central), host-facing.** The connect double-pulse wins over the advertising animation; caps lock shows when neither is active.
 
 | State | Pattern |
 | --- | --- |
-| Host connected / profile switched | solid profile colour for 3 s, then off |
+| Host connected / profile switched | soft double-pulse in the profile colour, then off |
 | Advertising (profile not connected) | profile-colour breathing, up to 60 s, then dark |
 | Caps Lock on | solid amber while active |
 
-Profile colours 0–4: purple, green, blue, red, pink.
+Profile colours 0–4: sapphire, green, purple, red, pink. The default device (profile 0) is sapphire, so a wake-and-reconnect shows only blue-family pixels.
 
 **Outer LED — right half (peripheral).**
 
 | State | Pattern |
 | --- | --- |
-| Connected to the left half | solid blue for 3 s, then off |
+| Connected to the left half | soft blue double-pulse, then off |
 | Searching for the left half | blue breathing, up to 60 s, then dark |
 
 Each half shows its own battery on its inner LED.
@@ -178,7 +177,7 @@ Since v2.3 this board' flash partitions has updated, removed SD (reducing sd par
 
 > You may need to reset fw by reset.uf2 from ealier version
 
-> You can rollback to stock firmware by flash orgin uf2 file, backup files under rmkfw/
+> To roll back to the stock RMK firmware, flash the vendor's original `.uf2` (not included in this repository).
 
 ## 🔰 Easy Method: Clone This Repository and Build with GitHub Actions
 
@@ -223,7 +222,7 @@ This section will guide you through building the Cornix ZMK firmware from scratc
 
 Before starting, ensure you have the following:
 - A GitHub account
- Git installed on your system
+- Git installed on your system
 - Basic understanding of Git and GitHub
 - Your Cornix keyboard PCBs ready
 
@@ -270,9 +269,7 @@ remotes:
   - name: zmkfirmware
     url-base: https://github.com/zmkfirmware
   - name: cornix-shield
-    url-base: https://github.com/hitsmaxft
-  - name: urob
-    url-base: https://github.com/urob
+    url-base: https://github.com/zhenlonghe
 ```
 
 Add to the `manifest/projects` section:
@@ -281,13 +278,12 @@ Add to the `manifest/projects` section:
 projects:
   - name: zmk
     remote: zmkfirmware
-    revision: main
+    # Pin the same ZMK revision as this repo's config/west.yml:
+    # the cornix_indicator shield links against ZMK-internal symbols.
+    revision: <zmk SHA from zmk-keyboard-cornix/config/west.yml>
     import: app/west.yml
   - name: zmk-keyboard-cornix
     remote: cornix-shield
-    revision: main
-  - name: zmk-helpers
-    remote: urob
     revision: main
 ```
 
@@ -309,9 +305,9 @@ Edit the `build.yaml` file, add:
 ```yaml
 include:
   # Use cornix with dongle
-  - board: nice_nano
-    shield: cornix_dongle_adaptor cornix_dongle_eyelash dongle_display
-    snippet: studio-rpc-usb-uart
+  - board: nice_nano/nrf52840/zmk
+    shield: cornix_dongle_adapter cornix_dongle_eyelash dongle_display
+    snippet: nrf52840-nosd
     artifact-name: cornix_dongle
 
   - board: cornix_ph_left
@@ -359,9 +355,9 @@ The configuration in the `build.yaml` file shows how to use these shields for th
 ```yaml
 include:
   # Use cornix with dongle
-  - board: nice_nano
+  - board: nice_nano/nrf52840/zmk
     shield: cornix_dongle_adapter cornix_dongle_eyelash dongle_display
-    snippet: studio-rpc-usb-uart
+    snippet: nrf52840-nosd
     artifact-name: cornix_dongle
 ```
 
@@ -371,12 +367,12 @@ To create a custom shield for the display part:
 3. If your board already has `zephyr,display` in the device tree, you can omit the `cornix_dongle_eyelash` shield
 4. Include your custom shield in the build configuration
 
-For custom dongle screens, add a new target in build.yaml for your custom dongle:
+For a custom dongle screen, add a target with your own display shield (here `my_dongle_display`) in place of `cornix_dongle_eyelash`:
 ```yaml
-- board: nice_nano
-  shield: cornix_dongle_adapter cornix_dongle_eyelash dongle_display
-  snippet: studio-rpc-usb-uart zmk-usb-logging
-  artifact-name: cornix_dongle
+- board: nice_nano/nrf52840/zmk
+  shield: cornix_dongle_adapter my_dongle_display dongle_display
+  snippet: nrf52840-nosd
+  artifact-name: my_cornix_dongle
 ```
 
 To create a custom shield for your display:
@@ -385,27 +381,29 @@ To create a custom shield for your display:
 3. Use `cornix_dongle_eyelash` as an example and modify the display parts to match your custom board
 4. You can copy the `cornix_dongle_eyelash` into your project's `boards/shield/` directory, and use the same name or rename it as a new shield
 
-The configuration in the `west.yml` file remains the same:
+In `west.yml`, also add the `zmk-dongle-display` module, which provides the `dongle_display` shield:
 ```yaml
 remotes:
   - name: zmkfirmware
     url-base: https://github.com/zmkfirmware
   - name: cornix-shield
-    url-base: https://github.com/hitsmaxft
-  - name: urob
-    url-base: https://github.com/urob
+    url-base: https://github.com/zhenlonghe
+  - name: englmaxi
+    url-base: https://github.com/englmaxi
 ```
 ```yaml
 projects:
   - name: zmk
     remote: zmkfirmware
-    revision: main
+    # Pin the same ZMK revision as this repo's config/west.yml:
+    # the cornix_indicator shield links against ZMK-internal symbols.
+    revision: <zmk SHA from zmk-keyboard-cornix/config/west.yml>
     import: app/west.yml
   - name: zmk-keyboard-cornix
     remote: cornix-shield
     revision: main
-  - name: zmk-helpers
-    remote: urob
+  - name: zmk-dongle-display
+    remote: englmaxi
     revision: main
 ```
 
@@ -422,7 +420,7 @@ If you prefer to build this project locally without adding it as a dependency in
 
 1. **Clone this repository**:
    ```bash
-   git clone https://github.com/hitsmaxft/zmk-keyboard-cornix.git
+   git clone https://github.com/zhenlonghe/zmk-keyboard-cornix.git
    ```
 
 2. **Configure your ZMK build with the extra module**:

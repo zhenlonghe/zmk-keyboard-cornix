@@ -66,6 +66,11 @@ LOG_MODULE_REGISTER(cornix_indicator, CONFIG_ZMK_LOG_LEVEL);
 #define BREATH_STEPS 64
 #define BREATH_PERIOD_MS 3000
 #define LOW_BLINK_PERIOD_MS 1200
+/* Link-established acknowledgement: two soft gamma pulses, then off. Short
+ * enough not to linger, distinct from the slow advertising breath. */
+#define CONNECT_PULSE_MS 360
+#define CONNECT_GAP_MS 140
+#define CONNECT_FLASH_MS (2 * CONNECT_PULSE_MS + CONNECT_GAP_MS)
 #define FADE_STEP 3
 #define BATTERY_LOW 20
 #define BATTERY_FULL 95
@@ -87,11 +92,13 @@ enum effect_kind {
     EFFECT_SOLID,
     EFFECT_BREATH,
     EFFECT_LOW_BATTERY,
+    EFFECT_CONNECT_FLASH,
 };
 
 struct effect {
     enum effect_kind kind;
     struct color color;
+    int64_t since; /* EFFECT_CONNECT_FLASH: start of the pulse pattern */
 };
 
 struct indicator_state {
@@ -132,10 +139,12 @@ static const struct color BLUE = {.r = 0, .g = 0, .b = 18};
 static const struct color CORAL = {.r = 18, .g = 8, .b = 5};
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
 static const struct color AMBER = {.r = 18, .g = 7, .b = 0};
+/* Profile 0 (the default device) is sapphire so a normal wake shows only
+ * blue-family pixels alongside the blue split-link LEDs. */
 static const struct color PROFILE_COLORS[] = {
-    {.r = 14, .g = 4, .b = 22},
-    {.r = 3, .g = 14, .b = 5},
     {.r = 2, .g = 3, .b = 22},
+    {.r = 3, .g = 14, .b = 5},
+    {.r = 14, .g = 4, .b = 22},
     {.r = 20, .g = 2, .b = 4},
     {.r = 20, .g = 12, .b = 16},
 };
@@ -226,6 +235,29 @@ static uint8_t breath_level(int64_t now) {
     return gamma * 255 / 1000;
 }
 
+static uint8_t connect_flash_level(int64_t now, int64_t since) {
+    int64_t elapsed = now - since;
+
+    if (elapsed < 0 || elapsed >= CONNECT_FLASH_MS) {
+        return 0;
+    }
+
+    uint32_t t = (uint32_t)elapsed;
+    if (t >= CONNECT_PULSE_MS) {
+        if (t < CONNECT_PULSE_MS + CONNECT_GAP_MS) {
+            return 0;
+        }
+        t -= CONNECT_PULSE_MS + CONNECT_GAP_MS;
+    }
+
+    uint32_t half = CONNECT_PULSE_MS / 2;
+    uint32_t up = t < half ? t : CONNECT_PULSE_MS - t;
+    uint32_t linear = up * 1000 / half;
+    uint32_t gamma = linear * linear / 1000;
+
+    return gamma * 255 / 1000;
+}
+
 static struct color scale_color(struct color color, uint8_t level) {
     return (struct color){
         .r = (uint16_t)color.r * level / 255,
@@ -247,6 +279,8 @@ static struct color effect_color(struct effect effect, int64_t now) {
         return scale_color(effect.color, breath_level(now));
     case EFFECT_LOW_BATTERY:
         return low_blink_on(now) ? CORAL : OFF;
+    case EFFECT_CONNECT_FLASH:
+        return scale_color(effect.color, connect_flash_level(now, effect.since));
     case EFFECT_OFF:
     default:
         return OFF;
@@ -254,7 +288,13 @@ static struct color effect_color(struct effect effect, int64_t now) {
 }
 
 static bool effect_is_animated(struct effect effect) {
-    return effect.kind == EFFECT_BREATH || effect.kind == EFFECT_LOW_BATTERY;
+    return effect.kind == EFFECT_BREATH || effect.kind == EFFECT_LOW_BATTERY ||
+           effect.kind == EFFECT_CONNECT_FLASH;
+}
+
+/* The pulse shape is drawn directly; FADE_STEP smoothing would flatten it. */
+static bool effect_is_direct(struct effect effect) {
+    return effect.kind == EFFECT_CONNECT_FLASH;
 }
 
 static bool battery_at_least(uint8_t threshold) {
@@ -443,8 +483,8 @@ static struct effect inner_effect(int64_t now) {
                    ? (struct effect){EFFECT_BREATH, BLUE}
                    : (struct effect){EFFECT_OFF, OFF};
     }
-    if (elapsed_less_than(now, state.peer_since, NOTICE_MS)) {
-        return (struct effect){EFFECT_SOLID, BLUE};
+    if (elapsed_less_than(now, state.peer_since, CONNECT_FLASH_MS)) {
+        return (struct effect){EFFECT_CONNECT_FLASH, BLUE, state.peer_since};
     }
 #endif
 
@@ -453,8 +493,9 @@ static struct effect inner_effect(int64_t now) {
 
 static struct effect outer_effect(int64_t now) {
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
-    if (state.ble_connected && elapsed_less_than(now, state.ble_since, NOTICE_MS)) {
-        return (struct effect){EFFECT_SOLID, profile_color(state.ble_profile)};
+    if (state.ble_connected && elapsed_less_than(now, state.ble_since, CONNECT_FLASH_MS)) {
+        return (struct effect){EFFECT_CONNECT_FLASH, profile_color(state.ble_profile),
+                               state.ble_since};
     }
     if (state.ble_advertising && elapsed_less_than(now, state.ble_since, ACTIVITY_MS)) {
         return (struct effect){EFFECT_BREATH, profile_color(state.ble_profile)};
@@ -464,8 +505,8 @@ static struct effect outer_effect(int64_t now) {
     }
 #else
     if (state.peer_connected) {
-        return elapsed_less_than(now, state.peer_since, NOTICE_MS)
-                   ? (struct effect){EFFECT_SOLID, BLUE}
+        return elapsed_less_than(now, state.peer_since, CONNECT_FLASH_MS)
+                   ? (struct effect){EFFECT_CONNECT_FLASH, BLUE, state.peer_since}
                    : (struct effect){EFFECT_OFF, OFF};
     }
     if (elapsed_less_than(now, state.peer_since, ACTIVITY_MS)) {
@@ -676,6 +717,9 @@ static void indicator_work_handler(struct k_work *work) {
 
     refresh_low_battery_locked(now);
 
+    bool inner_direct = false;
+    bool outer_direct = false;
+
     if (state.sleeping) {
         state.inner_active = false;
         state.outer_active = false;
@@ -688,10 +732,12 @@ static void indicator_work_handler(struct k_work *work) {
         state.outer_active = effect_is_animated(outer_fx);
         state.tgt_inner = effect_color(inner_fx, now);
         state.tgt_outer = effect_color(outer_fx, now);
+        inner_direct = effect_is_direct(inner_fx);
+        outer_direct = effect_is_direct(outer_fx);
     }
 
-    state.cur_inner = approach(state.cur_inner, state.tgt_inner);
-    state.cur_outer = approach(state.cur_outer, state.tgt_outer);
+    state.cur_inner = inner_direct ? state.tgt_inner : approach(state.cur_inner, state.tgt_inner);
+    state.cur_outer = outer_direct ? state.tgt_outer : approach(state.cur_outer, state.tgt_outer);
     inner = state.cur_inner;
     outer = state.cur_outer;
     animating = is_animating_locked();

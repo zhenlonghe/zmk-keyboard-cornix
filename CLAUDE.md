@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-Community ZMK firmware for the Cornix split ergonomic keyboard (nRF52840, Ebyte E73-2G4M08S1C module). It is a ZMK *module* (`zephyr/module.yml` sets `board_root: .` and `snippet_root: .`) providing custom board definitions and shields, plus the user keymap under `config/`.
+Community ZMK firmware for the Cornix split ergonomic keyboard (nRF52840, Ebyte E73-2G4M08S1C module). It is a ZMK *module* (`zephyr/module.yml` sets `board_root`, `snippet_root` and `dts_root` to `.`) providing custom board definitions and shields, plus the user keymap under `config/`.
 
 `firmware/` is **gitignored** — it is the local output directory for `build-docker.sh`. Released `.uf2` files come from GitHub Actions artifacts / tagged releases, not from the repo tree.
 
@@ -16,11 +16,7 @@ Community ZMK firmware for the Cornix split ergonomic keyboard (nRF52840, Ebyte 
 ./build-docker.sh [all|left|right] [--update]
 ```
 
-Clones/caches ZMK under `.build/zmk-docker/`, builds `cornix_left` + `cornix_right` with the `cornix_indicator` shield, and copies `.uf2` outputs into `firmware/`. `--update` refreshes ZMK and west deps first. It auto-starts OrbStack/Docker Desktop on macOS. Note it builds ZMK from `main`, not the SHA pinned in `config/west.yml` — CI is the source of truth for reproducible builds.
-
-### Build (Nix + Justfile)
-
-`flake.nix` provides the Zephyr SDK devshell; the `Justfile` drives west builds (`just list`, `just build <expr>` filters `build.yaml` targets, `just draw <keyboard>` renders keymap SVGs, `just test <path>` runs ZMK native_posix snapshot tests). **Build/test recipes expect a `ZMK_LIB_PREFIX` west workspace that this repo does not track** — `build-docker.sh` is the reliable local path.
+Clones/caches ZMK under `.build/zmk-docker/`, builds `cornix_left` + `cornix_right` with the `cornix_indicator` shield, and copies `.uf2` outputs into `firmware/`. ZMK is checked out at the SHA pinned in `config/west.yml` (re-fetched automatically when the pin changes), so local builds match CI; `--update` only re-runs `west update` for ZMK's own deps. It auto-starts OrbStack/Docker Desktop on macOS. It does not fetch `zmk-dongle-display` and only builds the two halves — dongle targets are CI-only.
 
 ### Keymap diagram
 
@@ -42,7 +38,7 @@ This is the only test that runs in CI. There are no ZMK snapshot tests checked i
 
 ### CI
 
-- `.github/workflows/build.yml` — runs the policy test, then builds the `build.yaml` matrix via ZMK's reusable `build-user-config.yml`. Also regenerates the keymap diagram and fails if `draw/` is stale. Triggered on pushes touching `boards/`, `config/`, `draw/`, `tests/`.
+- `.github/workflows/build.yml` — runs the policy test, then builds the `build.yaml` matrix via ZMK's reusable `build-user-config.yml`. Also regenerates the keymap diagram and fails if `draw/` is stale. Triggered on pushes touching `boards/`, `config/`, `draw/`, `dts/`, `tests/`, `build.yaml`, `zephyr/module.yml` or either workflow file.
 - `.github/workflows/release_with_tag.yml` — on `v*.*` tags, builds the same matrix and publishes a zip. A tag containing any letter (e.g. `v1.2-beta`) is marked prerelease.
 
 **The ZMK revision is hardcoded in three places** — `config/west.yml`, `build.yml`, and `release_with_tag.yml`. Bump all three together; the `pin-check` job in `build.yml` fails CI if they drift.
@@ -64,16 +60,17 @@ Hardware facts that constrain edits:
 - **No-SoftDevice flash layout.** Partitions in `nrf_e73.dtsi`: 4K stub, 844K code at `0x1000`, 128K storage, 48K boot. The board targets bake this in; the dongle/`nice_nano` targets in `build.yaml` get it via the `nrf52840-nosd` snippet. `.uf2` files flash directly.
 - **RC-only LFCLK** — the E73 module has no 32.768 kHz crystal. Keep `CONFIG_CLOCK_CONTROL_NRF_K32SRC_RC` + `_RC_CALIBRATION`; never switch to XTAL.
 - **Matrix**: `zmk,kscan-gpio-matrix`, col2row, 4 rows × 7 cols per half. The two halves use *different, swapped* row/col pins (see each `.dts`); the right half applies `col-offset = <7>` onto the 14-column `default_transform`.
-- `pinmux.c` drives P0.05 low at init to enable the onboard charger (`CONFIG_BOARD_CORNIX_CHARGER`).
+- `pinmux.c` drives P0.05 low at init to enable the onboard charger (`CONFIG_BOARD_CORNIX_CHARGER`). There is no `CONFIG_BOARD_CORNIX` symbol — guard per-board code with `CONFIG_BOARD_CORNIX_LEFT`/`_RIGHT`/`_PH_LEFT`.
+- P0.09/P0.10 (NFC pads) are matrix columns; `cornix.dtsi` sets `&uicr { nfct-pins-as-gpios; }` to keep them GPIOs.
+- **Split-link timing**: halves need a forced sync every ~45 ms for RC-clock drift. `cornix_left` runs 11.25 ms / latency 3; the USB-powered dongle runs 7.5 ms / latency 5. A runtime idle-aware conn-param switch was tried and removed — it caused split disconnects (see `boards/jzf/cornix/CMakeLists.txt`).
 - Encoders (`alps,ec11`) are declared disabled in `cornix_sensors.dtsi` and enabled per-half in the `.dts`.
 - Radio tuning convention: **both** sides run `CONFIG_BT_CTLR_TX_PWR_PLUS_8` and disable `CONFIG_BT_CTLR_PHY_2M`, so every link (split and host) runs 1M PHY for its ~4 dB sensitivity advantage at range. The defconfigs carry the rationale in comments — read them before retuning.
 
 ### Shields (`boards/shields/`)
 
 - **`cornix_indicator`** — holds all custom C in the repo; despite the name it also implements the reliability features:
-  - `cornix_indicator.c` (~750 lines) — RGB status LED engine (battery / charging / BLE profile / peer link / caps-lock), LED power-rail gating via `zmk,ext-power-generic`, a `k_work_delayable` render loop, and the BLE dual-disconnect recovery driver. Subscribes to ZMK events and links against **ZMK-internal symbols** (`zmk/split/transport/central.h`, `zmk/workqueue.h`, …) — this is why the ZMK revision is pinned.
+  - `cornix_indicator.c` (~900 lines) — RGB status LED engine (battery / charging / BLE profile / peer link / caps-lock), LED power-rail gating via `zmk,ext-power-generic`, a `k_work_delayable` render loop, and the BLE dual-disconnect recovery driver. Subscribes to ZMK events and links against **ZMK-internal symbols** (`zmk/split/transport/central.h`, `zmk/workqueue.h`, …) — this is why the ZMK revision is pinned.
   - `cornix_recovery.c` — firmware-halt self-recovery: overrides `k_sys_fatal_error_handler` to cold-reboot instead of halting, a 30 s hardware watchdog armed lazily on the first feed from the indicator loop, and a crash counter retained in **GPREGRET2** (GPREGRET1 belongs to the UF2 bootloader). 3 consecutive crashes → `bootmode_set(BOOTLOADER)`; beyond that → lock-free System OFF to save the battery.
-  - `cornix_split_params.c` — idle-aware split link (45 ms / latency 0 on ZMK `IDLE`). **Not built**: runtime conn-param updates issued at latency 3 caused split disconnects (see the comment in `boards/jzf/cornix/CMakeLists.txt`). Don't re-enable without solving that.
   - `reconnect_policy.h` — header-only pure state machine (arm / schedule / cancel) for the dual-disconnect fallback. **Keep it free of Zephyr dependencies** — `tests/reconnect_policy_test.c` compiles it standalone.
   - `cornix_indicator.overlay` enables `spi3` + `ws2812` + `led_power` (all declared `disabled` in the board dtsi) and exports the `status-ws2812` / `status-led-power` aliases the C code resolves via `DT_ALIAS`.
 - **`cornix_dongle_adapter`** — matrix/BLE glue for custom dongle boards (`CONFIG_ZMK_SPLIT_BLE_CENTRAL_PERIPHERALS=2`, 7 BLE connections).
@@ -83,10 +80,9 @@ Hardware facts that constrain edits:
 
 ### Config (`config/`)
 
-- `cornix.keymap` — 50-key layout, 5 layers (Base/Number/Symbol/Nav/FN), home-row mods (`hml`/`hmr`, balanced flavor, cross-hand `hold-trigger-key-positions`), and the copy/paste combos. The FN layer's left hand is a Herdr control cluster (`HD(k)` = `⌃⌥k`: agents 1–6, focus-attention, prev/next, zoom; left encoder switches workspaces) — the `⌃⌥` prefix is reserved for Herdr, see README "Herdr / agent control keys". `cornix42.keymap` is the 42-key variant.
-- **The cross-half soft-off combo is *not* in the keymap** — the `csoff` behavior and `soft_off_combo` (key positions 41+46, `split-peripheral-off-on-press`) live in `boards/jzf/cornix/cornix.dtsi`, and the matching System-OFF wake wiring (`zmk,gpio-key-wakeup-trigger`, driving col 4) lives in each half's `.dts`. The comments there explain why the wake column must not be a combo key's column — read them before touching soft off.
-- `config/includes/cornix50.h` documents position names (LT0/RM3/…) for the 50-key mapping but **is not `#include`d by any keymap** — it is reference material, not live code.
-- `west.yml` — pins ZMK, `zmk-helpers`, and `zmk-dongle-display` by SHA. Bump deliberately (see CI note above).
+- `cornix.keymap` — 50-key layout, 5 layers (Base/Number/Symbol/Nav/FN), home-row mods (`hml`/`hmr`, balanced flavor, cross-hand `hold-trigger-key-positions`), and the copy/paste combos. The FN layer's left hand is a Herdr control cluster (`HD(k)` = `⌃⌥k`: agents 1–6, focus-attention, prev/next, zoom; left encoder switches workspaces) — the `⌃⌥` prefix is reserved for Herdr, see README "Herdr / agent control keys".
+- **The cross-half soft-off combo is *not* in the keymap** — the `csoff` behavior and `soft_off_combo` (key positions 41+46, `split-peripheral-off-on-press`) live in `boards/jzf/cornix/cornix.dtsi`, and the matching System-OFF wake wiring (`zmk,gpio-key-wakeup-trigger`, driving col 6 — the encoder-press column, so each half wakes on its encoder press) lives in each half's `.dts`. The `csoff` driver is `boards/shields/cornix_indicator/behavior_cornix_soft_off.c` (built unconditionally; binding in `dts/bindings/behaviors/`) — a copy of ZMK's soft-off that white-double-blinks the LEDs first. The `.dts` comments explain why the wake column must not be a combo key's column — read them before touching soft off.
+- `west.yml` — pins ZMK and `zmk-dongle-display` (dongle `dongle_display` shield) by SHA. Bump deliberately (see CI note above).
 
 ### Design docs
 

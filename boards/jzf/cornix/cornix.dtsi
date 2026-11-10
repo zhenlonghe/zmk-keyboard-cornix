@@ -70,6 +70,14 @@
     regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
 };
 
+// P0.09 / P0.10 default to the NFC antenna pads. Both halves use them as
+// matrix columns (incl. the encoder-press / soft-off wake column), so claim
+// them as GPIOs. SystemInit writes UICR.NFCPINS once (then resets) if it is
+// not already set; a board whose UICR was already programmed sees a no-op.
+&uicr {
+    nfct-pins-as-gpios;
+};
+
 // The EC11 driver arms both-edge interrupts on the encoder A/B pins
 // (P1.04/P1.06). Without this mask the nrfx GPIO driver backs each with a
 // GPIOTE IN channel, which draws a constant extra current (tens of uA per the
@@ -94,19 +102,14 @@
 
         /* SPI */
         reg = <0>; /* ignored, but necessary for SPI bindings */
-        // spi-max-frequency = <8000000>;  // 8MHz
         spi-max-frequency = <6400000>;  // 6.4 MHz (was 8 MHz)
         reset-delay = <70>;
 
         /* WS2812 */
         chain-length = <2>;
-        // spi-one-frame = <0x78>;         // 01111000 for 1-bit (was 0x70)
-        // spi-zero-frame = <0x60>;        // 01100000 for 0-bit (was 0x40)
         spi-one-frame = <0xF8>;
         spi-zero-frame = <0x80>;
 
-        // spi-one-frame = <ONE_FRAME>;
-		// spi-zero-frame = <ZERO_FRAME>;
         color-mapping = <LED_COLOR_ID_GREEN LED_COLOR_ID_RED LED_COLOR_ID_BLUE>;
     };
 };

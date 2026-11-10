@@ -9,11 +9,12 @@ zephyr_library_sources_ifdef(
   ../../shields/cornix_indicator/cornix_indicator.c
   ../../shields/cornix_indicator/cornix_recovery.c
 )
-# cornix_split_params.c (idle-aware split link) is deliberately NOT built: its
-# ACTIVE -> IDLE connection update is issued while the peripheral runs latency
-# 3, and Zephyr's controller sets the instant only latency + 6 events ahead, so
+# Don't bring back the idle-aware split link (cornix_split_params.c, removed;
+# see git history) as-is: its ACTIVE -> IDLE connection update is issued while
+# the peripheral runs latency 3, and Zephyr's controller sets the instant only
+# latency + 6 events ahead, so
 # the right half gets ~2 listening chances before the switch. Missing both
 # desyncs the link and drops the split until supervision timeout + reconnect,
-# which showed up as occasional right-half disconnects. Kept for reference.
+# which showed up as occasional right-half disconnects.
 zephyr_library_include_directories(${ZEPHYR_BASE}/drivers)
 zephyr_library_include_directories(${APPLICATION_SOURCE_DIR}/include)

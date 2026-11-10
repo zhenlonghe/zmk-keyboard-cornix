@@ -40,12 +40,10 @@ include:
 
   - board: cornix_left
     shield: settings_reset
-    snippet: nrf52840-nosd
     artifact-name: cornix_left_settings_reset
 
   - board: cornix_right
     shield: settings_reset
-    snippet: nrf52840-nosd
     artifact-name: cornix_right_settings_reset
 
   - board: nice_nano/nrf52840/zmk

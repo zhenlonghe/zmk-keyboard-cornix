@@ -16,7 +16,10 @@ Usage: ./build-docker.sh [all|left|right] [--update]
   all       Build both halves (default)
   left      Build the left/central half only
   right     Build the right/peripheral half only
-  --update  Update ZMK and its west dependencies before building
+  --update  Re-run `west update` for ZMK's dependencies before building
+
+ZMK itself is checked out at the revision pinned in config/west.yml (the
+indicator shield links against ZMK-internal symbols), so local builds match CI.
 EOF
 }
 
@@ -71,6 +74,13 @@ start_docker() {
     exit 1
 }
 
+# Same extraction as the pin-check job in .github/workflows/build.yml.
+ZMK_REV="$(awk '$1 == "-" && $2 == "name:" && $3 == "zmk" {found=1} found && $1 == "revision:" {print $2; exit}' "$ROOT_DIR/config/west.yml")"
+if [[ ! "$ZMK_REV" =~ ^[0-9a-f]{40}$ ]]; then
+    echo "Could not read the pinned ZMK revision from config/west.yml (got '${ZMK_REV}')." >&2
+    exit 1
+fi
+
 start_docker
 mkdir -p "$WORKSPACE_DIR" "$FIRMWARE_DIR"
 
@@ -83,24 +93,26 @@ docker run --rm -i \
     -v "$WORKSPACE_DIR:/work" \
     -w /work \
     "$IMAGE" \
-    bash -s -- "$TARGET" "$UPDATE" <<'CONTAINER_SCRIPT'
+    bash -s -- "$TARGET" "$UPDATE" "$ZMK_REV" <<'CONTAINER_SCRIPT'
 set -euo pipefail
 
 target="$1"
 update="$2"
+zmk_rev="$3"
 initialized=0
 
 if [[ ! -d /work/zmk/.git ]]; then
-    echo "Cloning ZMK..."
-    git clone --depth 1 https://github.com/zmkfirmware/zmk.git /work/zmk
-    initialized=1
+    git init -q /work/zmk
+    git -C /work/zmk remote add origin https://github.com/zmkfirmware/zmk.git
 fi
 
 cd /work/zmk
 
-if [[ "$update" == "1" ]]; then
-    echo "Updating ZMK..."
-    git pull --ff-only
+if [[ "$(git rev-parse -q --verify HEAD || true)" != "$zmk_rev" ]]; then
+    echo "Checking out ZMK $zmk_rev..."
+    git fetch --depth 1 origin "$zmk_rev"
+    git checkout -q --detach FETCH_HEAD
+    initialized=1
 fi
 
 if [[ ! -d .west ]]; then

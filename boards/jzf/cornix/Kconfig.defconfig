@@ -47,9 +47,6 @@ endif # peripheral boards
 if BOARD_CORNIX_LEFT  || BOARD_CORNIX_PH_LEFT || BOARD_CORNIX_RIGHT
 
 
-#config BT_CTLR
-#    default BT
-
 config BOARD_CORNIX_CHARGER
     default y
 
@@ -73,7 +70,6 @@ config ZMK_RGB_UNDERGLOW
 	default n
 config ZMK_RGB_UNDERGLOW_EXT_POWER
 	default n
-    
 
-endif # BOARD_CORNIX_LEFT || BOARD_CORNIX_RIGHT
+endif # BOARD_CORNIX_LEFT || BOARD_CORNIX_PH_LEFT || BOARD_CORNIX_RIGHT
 # vim: set ft=kconfig:

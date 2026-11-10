@@ -16,6 +16,8 @@ on:
       - "zephyr/module.yml"
       - "dts/**"
       - ".github/workflows/build.yml"
+      # pin-check compares this file's ZMK revision too.
+      - ".github/workflows/release_with_tag.yml"
 
 jobs:
   policy-test:

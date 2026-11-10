@@ -6,7 +6,7 @@ Cornix 分体式人体工学键盘的社区 ZMK 固件，提供完整的分体�
 
 ## 功能特性
 
-- **50 键完整布局**（`LAYOUT_50`，另有 42 键变体），5 个层（Base / Number / Symbol / Nav / FN），支持 home-row mods 和 layer-tap。
+- **50 键完整布局**（`LAYOUT_50`），5 个层（Base / Number / Symbol / Nav / FN），支持 home-row mods 和 layer-tap。
 - **EC11 旋钮编码器** 支持（基础层为音量 / 亮度）。
 - **无 SoftDevice 闪存布局** —— 可直接刷入 `zmk.uf2`，无需恢复 SoftDevice（自 v2.3）。
 - **多种适配器方案**，通过 `cornix_dongle_adapter` 扩展板，并附带示例显示扩展板。
@@ -15,7 +15,7 @@ Cornix 分体式人体工学键盘的社区 ZMK 固件，提供完整的分体�
 - **可靠性与自恢复**（详见下文）：
   - BLE 双断链恢复兜底 —— 左右半与主机链路同时卡死时，等待 30 秒后恢复，仅在断链时用户近期有按键活动才触发。
   - 固件停机自恢复 —— fatal 错误改为冷重启，并有 30 秒硬件看门狗与崩溃循环保护。
-  - 软关机 combo + 单键唤醒 —— 按跨半 combo 关机，单键唤醒。
+  - 软关机 combo + 单键唤醒 —— 按跨半 combo 关机，按下各半旋钮唤醒。
 - **Combo 组合键**：基础层的复制 / 粘贴，以及软关机 combo。
 
 ## 键位图
@@ -130,23 +130,23 @@ Cornix 每半有 2 颗可寻址 LED——**内侧**与**外侧**各一颗。`cor
 | 充满（≥95%，仍插电） | 绿色常亮 3 秒后熄灭 |
 | 低电量（≤20% 且未充电） | 珊瑚色双闪 5 秒，每 5 分钟提醒一次 |
 | 右半失联（仅左半） | 蓝色呼吸，最长 60 秒后熄灭 |
-| 右半（重新）连上（仅左半） | 蓝色常亮 3 秒后熄灭 |
+| 右半（重新）连上（仅左半） | 蓝色柔和双闪后熄灭 |
 
-**外侧 LED——左半（central），面向主机。** 3 秒连接提示优先于广播动画；两者都不活跃时显示大写锁定。
+**外侧 LED——左半（central），面向主机。** 连接双闪优先于广播动画；两者都不活跃时显示大写锁定。
 
 | 状态 | 灯效 |
 | --- | --- |
-| 连上主机 / 切换 profile | 对应 profile 颜色常亮 3 秒后熄灭 |
+| 连上主机 / 切换 profile | 对应 profile 颜色柔和双闪后熄灭 |
 | 广播中（profile 未连接） | profile 颜色呼吸，最长 60 秒后熄灭 |
 | Caps Lock 开启 | 琥珀色常亮（开启期间持续） |
 
-Profile 0–4 颜色依次为：紫、绿、蓝、红、粉。
+Profile 0–4 颜色依次为：蓝宝石、绿、紫、红、粉。默认设备（profile 0）为蓝宝石色，唤醒重连时各灯均为蓝色系。
 
 **外侧 LED——右半（peripheral）。**
 
 | 状态 | 灯效 |
 | --- | --- |
-| 已连上左半 | 蓝色常亮 3 秒后熄灭 |
+| 已连上左半 | 蓝色柔和双闪后熄灭 |
 | 寻找左半中 | 蓝色呼吸，最长 60 秒后熄灭 |
 
 两半的内侧 LED 各自显示本半电池状态。
@@ -174,7 +174,7 @@ Cornix 是一款受 Corne 启发的分体式人体工学键盘，具有紧凑的
 
 > 您可能需要通过早期版本的 reset.uf2 重置固件
 
-> 您可以通过刷入原始 uf2 文件回滚到原始固件，在 rmkfw/ 下备份文件
+> 如需回滚到原厂 RMK 固件，请刷入厂商提供的原始 `.uf2`（本仓库不附带）。
 
 ## 🔰 简单方法：克隆此仓库并使用 GitHub Actions 构建
 
@@ -265,9 +265,7 @@ remotes:
   - name: zmkfirmware
     url-base: https://github.com/zmkfirmware
   - name: cornix-shield
-    url-base: https://github.com/hitsmaxft
-  - name: urob
-    url-base: https://github.com/urob
+    url-base: https://github.com/zhenlonghe
 ```
 
 在 `manifest/projects` 部分添加：
@@ -276,13 +274,12 @@ remotes:
 projects:
   - name: zmk
     remote: zmkfirmware
-    revision: main
+    # 与本仓库 config/west.yml 锁定同一个 ZMK 版本：
+    # cornix_indicator 扩展板链接了 ZMK 内部符号。
+    revision: <zmk SHA from zmk-keyboard-cornix/config/west.yml>
     import: app/west.yml
   - name: zmk-keyboard-cornix
     remote: cornix-shield
-    revision: main
-  - name: zmk-helpers
-    remote: urob
     revision: main
 ```
 
@@ -304,9 +301,9 @@ west update
 ```yaml
 include:
   # 使用带适配器的 cornix
-  - board: nice_nano
-    shield: cornix_dongle_adaptor cornix_dongle_eyelash dongle_display
-    snippet: studio-rpc-usb-uart
+  - board: nice_nano/nrf52840/zmk
+    shield: cornix_dongle_adapter cornix_dongle_eyelash dongle_display
+    snippet: nrf52840-nosd
     artifact-name: cornix_dongle
 
   - board: cornix_ph_left
@@ -355,9 +352,9 @@ include:
 ```yaml
 include:
   # 使用带适配器的 cornix
-  - board: nice_nano
+  - board: nice_nano/nrf52840/zmk
     shield: cornix_dongle_adapter cornix_dongle_eyelash dongle_display
-    snippet: studio-rpc-usb-uart
+    snippet: nrf52840-nosd
     artifact-name: cornix_dongle
 ```
 
@@ -367,13 +364,13 @@ include:
 3. 如果您的板子在设备树中已经有 `zephyr,display`，您可以省略 `cornix_dongle_eyelash` 扩展板
 4. 在构建配置中包含您的自定义扩展板
 
-对于自定义适配器屏幕，在 build.yaml 中为您的自定义适配器添加新目标：
+对于自定义适配器屏幕，在 build.yaml 中添加一个目标，用您自己的显示扩展板（此处为 `my_dongle_display`）替换 `cornix_dongle_eyelash`：
 
 ```yaml
-- board: nice_nano
-  shield: cornix_dongle_adapter cornix_dongle_eyelash dongle_display
-  snippet: studio-rpc-usb-uart zmk-usb-logging
-  artifact-name: cornix_dongle
+- board: nice_nano/nrf52840/zmk
+  shield: cornix_dongle_adapter my_dongle_display dongle_display
+  snippet: nrf52840-nosd
+  artifact-name: my_cornix_dongle
 ```
 
 要为您的显示创建自定义扩展板：
@@ -382,29 +379,31 @@ include:
 3. 使用 `cornix_dongle_eyelash` 作为示例并修改显示部分以匹配您的自定义板子
 4. 您可以将 `cornix_dongle_eyelash` 复制到您项目中的 `boards/shield/` 目录，并使用相同的名称或重命名为新扩展板
 
-`west.yml` 文件中的配置保持不变：
+`west.yml` 中还需加入 `zmk-dongle-display` 模块，它提供 `dongle_display` 扩展板：
 
 ```yaml
 remotes:
   - name: zmkfirmware
     url-base: https://github.com/zmkfirmware
   - name: cornix-shield
-    url-base: https://github.com/hitsmaxft
-  - name: urob
-    url-base: https://github.com/urob
+    url-base: https://github.com/zhenlonghe
+  - name: englmaxi
+    url-base: https://github.com/englmaxi
 ```
 
 ```yaml
 projects:
   - name: zmk
     remote: zmkfirmware
-    revision: main
+    # 与本仓库 config/west.yml 锁定同一个 ZMK 版本：
+    # cornix_indicator 扩展板链接了 ZMK 内部符号。
+    revision: <zmk SHA from zmk-keyboard-cornix/config/west.yml>
     import: app/west.yml
   - name: zmk-keyboard-cornix
     remote: cornix-shield
     revision: main
-  - name: zmk-helpers
-    remote: urob
+  - name: zmk-dongle-display
+    remote: englmaxi
     revision: main
 ```
 
@@ -421,7 +420,7 @@ projects:
 
 1. **克隆此仓库**：
    ```bash
-   git clone https://github.com/hitsmaxft/zmk-keyboard-cornix.git
+   git clone https://github.com/zhenlonghe/zmk-keyboard-cornix.git
    ```
 
 2. **使用额外模块配置您的 ZMK 构建**：

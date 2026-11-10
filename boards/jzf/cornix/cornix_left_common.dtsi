@@ -16,7 +16,7 @@
         , <&gpio0 29 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>  // Row 2
         , <&gpio0 2  (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>  // Row 3
         ;
-    // Left side column pins for nrfmicro: [P0_28, P0_03, P1_10, P1_11, P1_13, P0_09]
+    // Left side column pins for nrfmicro: [P0_28, P0_03, P1_10, P1_11, P1_13, P0_09, P0_10]
     col-gpios
         = <&gpio0 28 GPIO_ACTIVE_HIGH>  // Col 0
         , <&gpio0  3 GPIO_ACTIVE_HIGH>  // Col 1  
